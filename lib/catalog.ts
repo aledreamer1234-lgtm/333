@@ -228,6 +228,10 @@ export const itemImages: Record<string, string> = {
   "50 Clan Reroll": spImg("clan-reroll"),
   "250 Clan Reroll": spImg("clan-reroll"),
   "1000 Clan Reroll": spImg("clan-reroll"),
+  "10 Race Reroll": spImg("race-reroll"),
+  "25 Race Reroll": spImg("race-reroll"),
+  "50 Race Reroll": spImg("race-reroll"),
+  "100 Race Reroll": spImg("race-reroll"),
 
   // ===== Sailor Piece — materials & cosmetic crates ==================
   // Bloodline Stones / Cosmetic Crates carry per-quantity in-game art;
@@ -250,11 +254,17 @@ export const itemImages: Record<string, string> = {
   "50 Aura Crate": spImg("aura-crate"),
   "100 Aura Crate": spImg("aura-crate"),
 
-  // ===== Sailor Piece — boosts (one card has real artwork) ===========
-  // Only the 2x Drops boost ships an official icon; the other boost
-  // tiers (2x Money, 2x Gems, 2x EXP, 2x Luck Drop) fall back to the
-  // themed Zap tile until art is sourced.
+  // ===== Sailor Piece — boosts (all five permanent passes) ===========
+  // The Sailor-specific boost catalog appends a "(Sailor)" suffix to the
+  // names that collide with Blox Fruits' own boost catalog (2x Money is
+  // both a Blox Fruits gamepass and a Sailor permanent pass; 2x EXP is
+  // Blox Fruits' time-based boost vs. Sailor's permanent pass), so the
+  // image keys here mirror the Sailor catalog declarations exactly.
   "2x Drops": spImg("boost-2x-drops"),
+  "2x Money (Sailor)": spImg("boost-2x-money"),
+  "2x Gems": spImg("boost-2x-gems"),
+  "2x EXP (Sailor)": spImg("boost-2x-exp"),
+  "2x Luck Drop": spImg("boost-2x-luck-drop"),
 
   // ===== Sailor Piece — bundles (full banner art) ====================
   // Names mirror the in-game banners, which list the contents directly

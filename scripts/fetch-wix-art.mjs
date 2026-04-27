@@ -24,6 +24,28 @@ const ITEMS = [
     slug: "aura-crate",
     url: "https://static.wixstatic.com/media/c4d9b1_332b52e598c64f52b5cd67dff9451e9a~mv2.png/v1/fill/w_420,h_465,al_c,lg_1,q_85,enc_avif,quality_auto/c4d9b1_332b52e598c64f52b5cd67dff9451e9a~mv2.png",
   },
+  // Race Reroll has its art hosted on bloxinformer rather than the Wix CDN.
+  {
+    slug: "race-reroll",
+    url: "https://bloxinformer.com/wp-content/uploads/2026/03/race-reroll-item-sailor-piece.jpg",
+  },
+  // Remaining 2x boosts (Drops was added in the previous batch).
+  {
+    slug: "boost-2x-luck-drop",
+    url: "https://static.wixstatic.com/media/c4d9b1_947e9f2572d54557a68960d838ebcc53~mv2.png/v1/fill/w_344,h_381,al_c,lg_1,q_85,enc_avif,quality_auto/c4d9b1_947e9f2572d54557a68960d838ebcc53~mv2.png",
+  },
+  {
+    slug: "boost-2x-gems",
+    url: "https://static.wixstatic.com/media/c4d9b1_2c390d0d62814f28861c4c742b0add62~mv2.png/v1/fill/w_339,h_375,al_c,lg_1,q_85,enc_avif,quality_auto/c4d9b1_2c390d0d62814f28861c4c742b0add62~mv2.png",
+  },
+  {
+    slug: "boost-2x-exp",
+    url: "https://static.wixstatic.com/media/c4d9b1_b536fc1f19d04b09baedb2409bdf752d~mv2.png/v1/fill/w_339,h_375,al_c,lg_1,q_85,enc_avif,quality_auto/c4d9b1_b536fc1f19d04b09baedb2409bdf752d~mv2.png",
+  },
+  {
+    slug: "boost-2x-money",
+    url: "https://static.wixstatic.com/media/c4d9b1_411cb3116cb247f59c1b3675bab7e04d~mv2.png/v1/fill/w_326,h_361,al_c,lg_1,q_85,enc_avif,quality_auto/c4d9b1_411cb3116cb247f59c1b3675bab7e04d~mv2.png",
+  },
 ]
 
 const OUT_DIR = resolve(process.cwd(), "public/sailor")
