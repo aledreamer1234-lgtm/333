@@ -21,9 +21,11 @@ const SUBDOMAINS = {
 
 type Subdomain = keyof typeof SUBDOMAINS
 
+export type RobloxFailureReason = "rate_limited" | "not_found" | "network" | "upstream"
+
 export type RobloxFetchResult =
   | { ok: true; data: unknown; host: string }
-  | { ok: false; status: number; reason: "rate_limited" | "not_found" | "network" | "upstream" }
+  | { ok: false; status: number; reason: RobloxFailureReason }
 
 // Generic fetch with mirror fallback. Returns the first successful JSON response.
 // 404 responses short-circuit (the resource genuinely doesn't exist), but 429
@@ -82,7 +84,7 @@ export async function robloxFetch(
 
 // Friendly user-facing message for a failed Roblox call, used by both routes
 // so the client sees a consistent error vocabulary.
-export function robloxErrorMessage(reason: RobloxFetchResult extends { ok: false; reason: infer R } ? R : never): string {
+export function robloxErrorMessage(reason: RobloxFailureReason): string {
   switch (reason) {
     case "rate_limited":
       return "Roblox is rate-limiting us right now. Wait ~30 seconds and try again."
