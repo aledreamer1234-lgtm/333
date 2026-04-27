@@ -178,13 +178,6 @@ export const itemImages: Record<string, string> = {
   Excalibur: spImg("excalibur"),
   Manipulator: spImg("manipulator"),
   "Qin Shi": spImg("qin-shi"),
-  // The Sailor Piece "Shadow" weapon shares its product name with the Blox
-  // Fruits "Shadow" fruit. We DON'T map "Shadow" -> spImg("shadow") here:
-  // the previous file at /public/sailor/shadow.png turned out to be the
-  // Blox Fruits fruit art, not the Sailor weapon. Until correct artwork is
-  // sourced, the SP Shadow card falls back to the themed Sword tile via
-  // `imageForProduct()` returning undefined. The namespaced lookup format
-  // is documented at the resolver below.
   "Cursed Vessel": spImg("cursed-vessel"),
   "Vampire King": spImg("vampire-king"),
   "Strongest of Today": spImg("strongest-of-today"),
@@ -454,7 +447,6 @@ const sailorPieceWeapons: Product[] = [
   sp("Vampire King", "Weapon Spec", 899, "weapon"),
   sp("Manipulator", "Weapon Spec", 949, "weapon"),
   sp("Conqueror Haki", "Weapon Spec", 999, "weapon"),
-  sp("Shadow", "Weapon Spec", 999, "weapon"),
   sp("Strongest of Today", "Weapon Spec", 1049, "weapon"),
   sp("Strongest in History", "Weapon Spec", 1099, "weapon"),
   sp("Slime", "Weapon Spec", 1149, "weapon"),
