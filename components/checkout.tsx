@@ -5,9 +5,11 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   CreditCard,
+  Loader2,
   Lock,
   LogIn,
   ShoppingBag,
@@ -54,6 +56,16 @@ export function Checkout() {
   const [promoInput, setPromoInput] = useState("")
   const [promoError, setPromoError] = useState<string | null>(null)
 
+  // ---- "Is this the right user?" confirmation gate ----
+  // Pressing the place-order button doesn't immediately charge / submit the
+  // order. Instead it opens a modal that shows the Roblox username (and
+  // avatar, if we have it from the verified session) and forces a 3s wait
+  // before the confirm button becomes clickable. This keeps a sleepy buyer
+  // from sending Robux to a typo'd username.
+  const CONFIRM_DELAY_SECONDS = 3
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmCountdown, setConfirmCountdown] = useState(CONFIRM_DELAY_SECONDS)
+
   // ---- auth banner: signed in vs guest ----
   // Checkout never blocks on auth — guests can place orders. But if the visitor
   // is already signed in we (a) prefill the verified Roblox username and lock
@@ -93,9 +105,23 @@ export function Checkout() {
     (authUser?.user_metadata?.username as string | undefined) ??
     null
 
+  const verifiedAvatarUrl =
+    (authUser?.user_metadata?.roblox_avatar_url as string | undefined) ?? null
+
   useEffect(() => {
     if (verifiedRobloxName) setRobloxUsername(verifiedRobloxName)
   }, [verifiedRobloxName])
+
+  // Countdown ticker for the confirmation modal. Resets to the full delay
+  // each time the modal opens, then ticks down to 0 once per second.
+  useEffect(() => {
+    if (!confirmOpen) return
+    if (confirmCountdown <= 0) return
+    const timer = window.setTimeout(() => {
+      setConfirmCountdown((s) => Math.max(0, s - 1))
+    }, 1000)
+    return () => window.clearTimeout(timer)
+  }, [confirmOpen, confirmCountdown])
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault()
@@ -114,9 +140,23 @@ export function Checkout() {
     setPromoInput("")
   }
 
-  const handleSubmit = async (e: FormEvent) => {
+  // Form submit just opens the confirmation modal. The actual order is only
+  // placed after the user confirms post-countdown via `placeOrder`.
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!agreed || items.length === 0) return
+    if (!agreed || items.length === 0 || submitting) return
+    if (!robloxUsername.trim()) return
+    setConfirmCountdown(CONFIRM_DELAY_SECONDS)
+    setConfirmOpen(true)
+  }
+
+  const cancelConfirm = () => {
+    if (submitting) return
+    setConfirmOpen(false)
+  }
+
+  const placeOrder = async () => {
+    if (confirmCountdown > 0 || submitting) return
     setSubmitting(true)
     // Simulate placing the order
     await new Promise((r) => setTimeout(r, 900))
@@ -124,6 +164,7 @@ export function Checkout() {
     setOrderId(id)
     clearCart()
     setSubmitting(false)
+    setConfirmOpen(false)
   }
 
   // Order placed — success state
@@ -582,6 +623,105 @@ export function Checkout() {
           </div>
         </aside>
       </form>
+
+      {/* Confirm-the-right-user modal. Opens after the user submits the form
+          and forces a 3 second pause before the confirm button enables. */}
+      {confirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-user-title"
+          className="fixed inset-0 z-50 grid place-items-center bg-black/70 px-4 backdrop-blur-sm"
+          onClick={cancelConfirm}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--bg-1)] p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-400">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2
+                  id="confirm-user-title"
+                  className="text-lg font-semibold tracking-tight text-[var(--ink)]"
+                >
+                  Please confirm this is your right user
+                </h2>
+                <p className="mt-1 text-sm text-[var(--ink-dim)]">
+                  We&apos;ll deliver everything in your cart to the Roblox account
+                  below. Double-check the spelling — once placed, this can&apos;t be
+                  redirected.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg-0)] p-4">
+              <span className="grid h-12 w-12 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--bg-2)] ring-1 ring-[var(--line)]">
+                {verifiedAvatarUrl ? (
+                  <Image
+                    src={verifiedAvatarUrl || "/placeholder.svg"}
+                    alt={`${robloxUsername} avatar`}
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-base font-semibold text-[var(--ink-mute)]">
+                    {robloxUsername.charAt(0).toUpperCase() || "?"}
+                  </span>
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-mono text-sm font-semibold text-[var(--ink)]">
+                  @{robloxUsername || "—"}
+                </p>
+                <p className="truncate text-xs text-[var(--ink-mute)]">
+                  {verifiedRobloxName
+                    ? "Verified Roblox account on file"
+                    : "Username entered for this order"}
+                </p>
+              </div>
+              <span className="flex-shrink-0 rounded-md bg-[var(--bg-2)] px-2 py-1 text-xs font-medium text-[var(--ink)]">
+                {totalItems} item{totalItems === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={cancelConfirm}
+                disabled={submitting}
+                className="rounded-lg border border-[var(--line)] px-4 py-2.5 text-sm font-medium text-[var(--ink)] transition-colors hover:bg-[var(--bg-2)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Go back
+              </button>
+              <button
+                type="button"
+                onClick={placeOrder}
+                disabled={confirmCountdown > 0 || submitting}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--bg-0)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-live="polite"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Placing order...
+                  </>
+                ) : confirmCountdown > 0 ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {`Confirm in ${confirmCountdown}s`}
+                  </>
+                ) : (
+                  `Yes, that's my user`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
