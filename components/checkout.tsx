@@ -9,12 +9,15 @@ import {
   ArrowLeft,
   CheckCircle2,
   CreditCard,
+  Info,
   Loader2,
   Lock,
   LogIn,
   ShoppingBag,
   Tag,
+  User as UserIcon,
   UserCheck,
+  UserX,
   X,
 } from "lucide-react"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
@@ -112,6 +115,121 @@ export function Checkout() {
     if (verifiedRobloxName) setRobloxUsername(verifiedRobloxName)
   }, [verifiedRobloxName])
 
+  // ---- Live Roblox lookup ----
+  // We debounce-call /api/roblox/lookup as the buyer types so we can (a) show
+  // their avatar and canonical username/displayName, and (b) refuse to place
+  // an order against a username that doesn't actually exist. The route already
+  // enforces Roblox's username rule (3–20 chars, [A-Za-z0-9_] only), so a
+  // display name like "the cool kid" gets caught at the format step before we
+  // even hit the network.
+  type LookupState =
+    | { kind: "idle" }
+    | { kind: "invalid_format"; reason: "too_short" | "too_long" | "bad_chars" }
+    | { kind: "checking" }
+    | { kind: "found"; id: number; name: string; displayName: string; avatarUrl: string | null }
+    | { kind: "not_found" }
+    | { kind: "error"; message: string }
+
+  const [lookup, setLookup] = useState<LookupState>({ kind: "idle" })
+
+  useEffect(() => {
+    const raw = robloxUsername.trim()
+
+    // Reset everything for an empty field — no error, no avatar, no submit.
+    if (raw.length === 0) {
+      setLookup({ kind: "idle" })
+      return
+    }
+
+    // Catch obvious display-name typos client-side so we can give a friendly,
+    // specific hint instead of waiting for a 400 from the server.
+    if (raw.length < 3) {
+      setLookup({ kind: "invalid_format", reason: "too_short" })
+      return
+    }
+    if (raw.length > 20) {
+      setLookup({ kind: "invalid_format", reason: "too_long" })
+      return
+    }
+    if (!/^[A-Za-z0-9_]+$/.test(raw)) {
+      setLookup({ kind: "invalid_format", reason: "bad_chars" })
+      return
+    }
+
+    // Trusted shortcut: a signed-in, already-verified handle with a cached
+    // avatar in user_metadata. Skip the network call entirely.
+    if (
+      verifiedRobloxName &&
+      raw.toLowerCase() === verifiedRobloxName.toLowerCase()
+    ) {
+      setLookup({
+        kind: "found",
+        id: 0,
+        name: verifiedRobloxName,
+        displayName: verifiedRobloxName,
+        avatarUrl: verifiedAvatarUrl,
+      })
+      return
+    }
+
+    setLookup({ kind: "checking" })
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch("/api/roblox/lookup", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: raw }),
+          signal: controller.signal,
+        })
+        const data = (await res.json()) as
+          | { id: number; name: string; displayName: string; avatarUrl: string | null }
+          | { error: string }
+
+        if (controller.signal.aborted) return
+        if (!res.ok) {
+          if (res.status === 404) {
+            setLookup({ kind: "not_found" })
+          } else {
+            setLookup({
+              kind: "error",
+              message:
+                "error" in data ? data.error : "Couldn't reach Roblox right now.",
+            })
+          }
+          return
+        }
+        if ("error" in data) {
+          setLookup({ kind: "error", message: data.error })
+          return
+        }
+        setLookup({
+          kind: "found",
+          id: data.id,
+          name: data.name,
+          displayName: data.displayName,
+          avatarUrl: data.avatarUrl,
+        })
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return
+        setLookup({
+          kind: "error",
+          message: "Couldn't reach Roblox right now. Try again in a moment.",
+        })
+      }
+    }, 450)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [robloxUsername, verifiedRobloxName, verifiedAvatarUrl])
+
+  const lookupAvatarUrl = lookup.kind === "found" ? lookup.avatarUrl : null
+  const lookupDisplayName = lookup.kind === "found" ? lookup.displayName : null
+  const lookupCanonicalName = lookup.kind === "found" ? lookup.name : robloxUsername
+  const usernameVerified = lookup.kind === "found"
+
   // Countdown ticker for the confirmation modal. Resets to the full delay
   // each time the modal opens, then ticks down to 0 once per second.
   useEffect(() => {
@@ -141,11 +259,14 @@ export function Checkout() {
   }
 
   // Form submit just opens the confirmation modal. The actual order is only
-  // placed after the user confirms post-countdown via `placeOrder`.
+  // placed after the user confirms post-countdown via `placeOrder`. We refuse
+  // to even open the modal until the live lookup confirms the username exists,
+  // because every order line item is delivered by Roblox username.
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!agreed || items.length === 0 || submitting) return
     if (!robloxUsername.trim()) return
+    if (!usernameVerified) return
     setConfirmCountdown(CONFIRM_DELAY_SECONDS)
     setConfirmOpen(true)
   }
@@ -323,25 +444,138 @@ export function Checkout() {
                 >
                   Roblox username
                 </label>
-                <input
-                  id="roblox"
-                  type="text"
-                  required
-                  value={robloxUsername}
-                  onChange={(e) => setRobloxUsername(e.target.value)}
-                  placeholder="e.g. PirateKing123"
-                  autoComplete="username"
-                  readOnly={Boolean(verifiedRobloxName)}
-                  aria-readonly={Boolean(verifiedRobloxName)}
-                  className={`w-full rounded-lg border border-[var(--line)] bg-[var(--bg-0)] px-3 py-2.5 text-sm text-[var(--ink)] placeholder:text-[var(--ink-mute)] focus:border-[var(--accent)] focus:outline-none ${
-                    verifiedRobloxName ? "cursor-not-allowed opacity-80" : ""
-                  }`}
-                />
-                <p className="mt-1.5 text-xs text-[var(--ink-mute)]">
-                  {verifiedRobloxName
-                    ? "Locked to your verified Roblox account."
-                    : "Make sure this matches your in-game account exactly."}
-                </p>
+
+                {/* "No display names" hint sits above the input so buyers see
+                    it before they start typing. The live status below tells
+                    them in real time whether they got it right. */}
+                <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                  <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                  <span>
+                    <strong className="font-semibold">Display names aren&apos;t accepted.</strong>{" "}
+                    Use your actual Roblox <em>username</em> — the one shown
+                    with an <span className="font-mono">@</span> on your profile,
+                    not the larger display name. Usernames are 3–20 characters
+                    and only contain letters, numbers, and underscores.
+                  </span>
+                </div>
+
+                <div className="flex items-stretch gap-3">
+                  {/* Avatar preview tile. States: empty / checking / found /
+                      not-found / format-invalid. We keep its size identical
+                      across states so the layout doesn't jump as we type. */}
+                  <span
+                    aria-hidden
+                    className={`grid h-[58px] w-[58px] flex-shrink-0 place-items-center overflow-hidden rounded-lg bg-[var(--bg-0)] ring-1 transition-colors ${
+                      lookup.kind === "found"
+                        ? "ring-[var(--accent)]/60"
+                        : lookup.kind === "not_found" ||
+                            lookup.kind === "invalid_format"
+                          ? "ring-red-500/50"
+                          : "ring-[var(--line)]"
+                    }`}
+                  >
+                    {lookup.kind === "found" && lookup.avatarUrl ? (
+                      <Image
+                        src={lookup.avatarUrl || "/placeholder.svg"}
+                        alt={`${lookup.name} avatar`}
+                        width={58}
+                        height={58}
+                        className="h-full w-full object-cover"
+                        unoptimized
+                      />
+                    ) : lookup.kind === "checking" ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-[var(--ink-mute)]" />
+                    ) : lookup.kind === "not_found" ||
+                      lookup.kind === "invalid_format" ? (
+                      <UserX className="h-5 w-5 text-red-400" />
+                    ) : (
+                      <UserIcon className="h-5 w-5 text-[var(--ink-mute)]" />
+                    )}
+                  </span>
+
+                  <div className="flex-1">
+                    <input
+                      id="roblox"
+                      type="text"
+                      required
+                      value={robloxUsername}
+                      onChange={(e) => setRobloxUsername(e.target.value)}
+                      placeholder="e.g. PirateKing123"
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      readOnly={Boolean(verifiedRobloxName)}
+                      aria-readonly={Boolean(verifiedRobloxName)}
+                      aria-invalid={
+                        lookup.kind === "not_found" ||
+                        lookup.kind === "invalid_format"
+                      }
+                      className={`w-full rounded-lg border bg-[var(--bg-0)] px-3 py-2.5 text-sm text-[var(--ink)] placeholder:text-[var(--ink-mute)] focus:outline-none ${
+                        lookup.kind === "found"
+                          ? "border-[var(--accent)]/60 focus:border-[var(--accent)]"
+                          : lookup.kind === "not_found" ||
+                              lookup.kind === "invalid_format"
+                            ? "border-red-500/50 focus:border-red-500"
+                            : "border-[var(--line)] focus:border-[var(--accent)]"
+                      } ${verifiedRobloxName ? "cursor-not-allowed opacity-80" : ""}`}
+                    />
+
+                    {/* Live status line under the input. */}
+                    <div className="mt-1.5 min-h-[1rem] text-xs">
+                      {lookup.kind === "idle" && !verifiedRobloxName && (
+                        <span className="text-[var(--ink-mute)]">
+                          We&apos;ll look up your avatar to confirm the username.
+                        </span>
+                      )}
+                      {verifiedRobloxName && lookup.kind === "found" && (
+                        <span className="text-[var(--accent)]">
+                          Locked to your verified Roblox account.
+                        </span>
+                      )}
+                      {lookup.kind === "checking" && (
+                        <span className="text-[var(--ink-mute)]">
+                          Checking Roblox…
+                        </span>
+                      )}
+                      {lookup.kind === "found" && !verifiedRobloxName && (
+                        <span className="text-[var(--accent)]">
+                          Found{" "}
+                          <span className="font-mono">@{lookup.name}</span>
+                          {lookup.displayName &&
+                            lookup.displayName.toLowerCase() !==
+                              lookup.name.toLowerCase() && (
+                              <>
+                                {" "}
+                                <span className="text-[var(--ink-mute)]">
+                                  (display name: {lookup.displayName})
+                                </span>
+                              </>
+                            )}
+                        </span>
+                      )}
+                      {lookup.kind === "not_found" && (
+                        <span className="text-red-400">
+                          No Roblox account with that username. Double-check
+                          spelling — and make sure it&apos;s the username, not the
+                          display name.
+                        </span>
+                      )}
+                      {lookup.kind === "invalid_format" && (
+                        <span className="text-red-400">
+                          {lookup.reason === "too_short"
+                            ? "Roblox usernames are at least 3 characters."
+                            : lookup.reason === "too_long"
+                              ? "Roblox usernames are at most 20 characters."
+                              : "Roblox usernames can only contain letters, numbers, and underscores. Spaces and special characters belong to display names — those aren't accepted."}
+                        </span>
+                      )}
+                      {lookup.kind === "error" && (
+                        <span className="text-amber-400">{lookup.message}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -615,10 +849,19 @@ export function Checkout() {
 
             <button
               type="submit"
-              disabled={!agreed || submitting || items.length === 0}
+              disabled={
+                !agreed ||
+                submitting ||
+                items.length === 0 ||
+                !usernameVerified
+              }
               className="mt-4 w-full rounded-lg bg-[var(--accent)] py-3 text-sm font-semibold text-[var(--bg-0)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Placing order..." : `Place order - $${totalUSD.toFixed(2)}`}
+              {submitting
+                ? "Placing order..."
+                : !usernameVerified
+                  ? "Confirm your Roblox username"
+                  : `Place order - $${totalUSD.toFixed(2)}`}
             </button>
           </div>
         </aside>
@@ -658,14 +901,15 @@ export function Checkout() {
             </div>
 
             <div className="mt-5 flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg-0)] p-4">
-              <span className="grid h-12 w-12 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--bg-2)] ring-1 ring-[var(--line)]">
-                {verifiedAvatarUrl ? (
+              <span className="grid h-14 w-14 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--bg-2)] ring-1 ring-[var(--accent)]/40">
+                {lookupAvatarUrl || verifiedAvatarUrl ? (
                   <Image
-                    src={verifiedAvatarUrl || "/placeholder.svg"}
-                    alt={`${robloxUsername} avatar`}
-                    width={48}
-                    height={48}
+                    src={lookupAvatarUrl ?? verifiedAvatarUrl ?? "/placeholder.svg"}
+                    alt={`${lookupCanonicalName} avatar`}
+                    width={56}
+                    height={56}
                     className="h-full w-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <span className="text-base font-semibold text-[var(--ink-mute)]">
@@ -675,12 +919,19 @@ export function Checkout() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-mono text-sm font-semibold text-[var(--ink)]">
-                  @{robloxUsername || "—"}
+                  @{lookupCanonicalName || "—"}
                 </p>
+                {lookupDisplayName &&
+                  lookupDisplayName.toLowerCase() !==
+                    lookupCanonicalName.toLowerCase() && (
+                    <p className="truncate text-xs text-[var(--ink-dim)]">
+                      Display name: {lookupDisplayName}
+                    </p>
+                  )}
                 <p className="truncate text-xs text-[var(--ink-mute)]">
                   {verifiedRobloxName
                     ? "Verified Roblox account on file"
-                    : "Username entered for this order"}
+                    : "Confirmed via Roblox"}
                 </p>
               </div>
               <span className="flex-shrink-0 rounded-md bg-[var(--bg-2)] px-2 py-1 text-xs font-medium text-[var(--ink)]">
