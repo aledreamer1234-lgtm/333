@@ -114,46 +114,102 @@ export function Header() {
           {loading ? (
             <div className="h-9 w-20 animate-pulse rounded-lg bg-[var(--bg-2)]" />
           ) : user ? (
-            <div className="relative">
-              <button 
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--ink)] transition-colors hover:bg-[var(--bg-2)]"
-                aria-expanded={dropdownOpen}
-                aria-haspopup="true"
-              >
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline max-w-[100px] truncate">
-                  {user.email?.split("@")[0]}
-                </span>
-              </button>
+            (() => {
+              // Pull the verified Roblox identity out of user_metadata. The
+              // synthetic Supabase email (roblox-{id}@accounts.fruits.place)
+              // is an internal id, never a label — fall back to it only as a
+              // last resort if metadata somehow isn't populated yet.
+              const robloxName =
+                (user.user_metadata?.roblox_username as string | undefined) ??
+                (user.user_metadata?.username as string | undefined) ??
+                null
+              const robloxAvatar =
+                (user.user_metadata?.roblox_avatar_url as string | undefined) ??
+                null
+              const displayLabel = robloxName ?? "Account"
+
+              return (
+                <div className="relative">
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-2 rounded-lg border border-[var(--line)] py-1.5 pl-1.5 pr-3 text-sm font-medium text-[var(--ink)] transition-colors hover:bg-[var(--bg-2)]"
+                    aria-expanded={dropdownOpen}
+                    aria-haspopup="true"
+                  >
+                    <span className="grid h-6 w-6 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--bg-2)] ring-1 ring-[var(--line)]">
+                      {robloxAvatar ? (
+                        <Image
+                          src={robloxAvatar || "/placeholder.svg"}
+                          alt={`${displayLabel} avatar`}
+                          width={24}
+                          height={24}
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <User className="h-3.5 w-3.5 text-[var(--ink-mute)]" />
+                      )}
+                    </span>
+                    <span className="hidden max-w-[120px] truncate sm:inline">
+                      {displayLabel}
+                    </span>
+                  </button>
               
-              {dropdownOpen && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-10" 
-                    onClick={() => setDropdownOpen(false)}
-                    aria-hidden="true"
-                  />
-                  <div className="absolute right-0 top-full mt-2 z-20 w-48 rounded-lg border border-[var(--line)] bg-[var(--bg-1)] py-1 shadow-xl">
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--ink-dim)] hover:bg-[var(--bg-2)] hover:text-[var(--ink)]"
-                    >
-                      <User className="h-4 w-4" />
-                      Dashboard
-                    </Link>
-                    <button
-                      onClick={handleSignOut}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-[var(--bg-2)]"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sign out
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                  {dropdownOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setDropdownOpen(false)}
+                        aria-hidden="true"
+                      />
+                      <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-[var(--line)] bg-[var(--bg-1)] py-1 shadow-xl">
+                        {/* Identity header inside the dropdown so the user can
+                            see exactly which Roblox account is signed in. */}
+                        <div className="flex items-center gap-2.5 border-b border-[var(--line-soft)] px-3 py-2.5">
+                          <span className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--bg-2)] ring-1 ring-[var(--line)]">
+                            {robloxAvatar ? (
+                              <Image
+                                src={robloxAvatar || "/placeholder.svg"}
+                                alt={`${displayLabel} avatar`}
+                                width={36}
+                                height={36}
+                                className="h-full w-full object-cover"
+                                unoptimized
+                              />
+                            ) : (
+                              <User className="h-4 w-4 text-[var(--ink-mute)]" />
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                              {displayLabel}
+                            </p>
+                            <p className="truncate text-xs text-[var(--ink-mute)]">
+                              {robloxName ? "Verified Roblox account" : "Signed in"}
+                            </p>
+                          </div>
+                        </div>
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--ink-dim)] hover:bg-[var(--bg-2)] hover:text-[var(--ink)]"
+                        >
+                          <User className="h-4 w-4" />
+                          Dashboard
+                        </Link>
+                        <button
+                          onClick={handleSignOut}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-[var(--bg-2)]"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Sign out
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })()
           ) : (
             <Link
               href="/auth/login"

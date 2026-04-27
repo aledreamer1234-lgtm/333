@@ -30,6 +30,12 @@ type Body = {
   robloxName?: unknown
   displayName?: unknown
   avatarUrl?: unknown
+  // "signup" → reject if the Roblox user is already registered.
+  // "login"  → re-issue a session for an existing user (auto-create if missing
+  //            for back-compat with older clients).
+  // If omitted, we default to "login" behaviour to avoid breaking existing
+  // clients that don't pass the flag.
+  mode?: unknown
 }
 
 type RoUserDetails = { description?: string | null }
@@ -59,6 +65,8 @@ export async function POST(req: Request) {
     typeof body.avatarUrl === "string" && body.avatarUrl.trim().length > 0
       ? body.avatarUrl
       : null
+  const mode: "signup" | "login" =
+    body.mode === "signup" ? "signup" : "login"
 
   if (!userId || !robloxName) {
     return NextResponse.json(
@@ -142,6 +150,19 @@ export async function POST(req: Request) {
 
   if (createError && !alreadyExists) {
     return NextResponse.json({ error: createError.message }, { status: 500 })
+  }
+
+  // Sign-up specifically refuses to take over an existing account. Returning
+  // 409 Conflict gives the client a clean signal to direct the user to /login.
+  if (alreadyExists && mode === "signup") {
+    return NextResponse.json(
+      {
+        error:
+          "This Roblox user is already signed up to fruits.place. Sign in instead.",
+        code: "already_registered",
+      },
+      { status: 409 },
+    )
   }
 
   // Generate a magic link — returns the hashed token regardless of whether the

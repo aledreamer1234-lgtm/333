@@ -85,6 +85,9 @@ export default function SignUpPage() {
   const [savingEmail, setSavingEmail] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
+  // When the server returns 409 already_registered we render an extra
+  // "Sign in instead" CTA below the error message rather than a generic toast.
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
 
   // Generate the verification code as soon as we know who the Roblox user is.
   useEffect(() => {
@@ -143,15 +146,18 @@ export default function SignUpPage() {
   const handleVerifyAndCreate = async () => {
     if (!robloxUser) return
     setError(null)
+    setAlreadyRegistered(false)
     setVerifyLoading(true)
     try {
       // The /api/roblox/auth route re-verifies the bio AND creates the user
       // in a single atomic step, returning a magic-link token we can use to
-      // sign the visitor in immediately.
+      // sign the visitor in immediately. Passing mode:"signup" tells the
+      // server to refuse if the Roblox account is already registered.
       const res = await fetch("/api/roblox/auth", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          mode: "signup",
           userId: robloxUser.id,
           code,
           robloxName: robloxUser.name,
@@ -159,7 +165,19 @@ export default function SignUpPage() {
           avatarUrl: robloxUser.avatarUrl,
         }),
       })
-      const data = (await res.json()) as { token_hash?: string; error?: string }
+      const data = (await res.json()) as {
+        token_hash?: string
+        error?: string
+        code?: string
+      }
+      if (res.status === 409 || data.code === "already_registered") {
+        setAlreadyRegistered(true)
+        setError(
+          data.error ??
+            "This Roblox user is already signed up to fruits.place.",
+        )
+        return
+      }
       if (!res.ok || !data.token_hash) {
         throw new Error(data.error ?? "Verification failed")
       }
@@ -376,6 +394,7 @@ export default function SignUpPage() {
                     setCode("")
                     setStep(1)
                     setError(null)
+                    setAlreadyRegistered(false)
                   }}
                   className="text-xs font-medium text-[var(--accent)] hover:underline"
                 >
@@ -418,33 +437,50 @@ export default function SignUpPage() {
               {error && (
                 <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
                   {error}
+                  {alreadyRegistered && (
+                    <p className="mt-2 text-xs text-red-300/80">
+                      Each Roblox account can only be linked to one fruits.place
+                      account. Use the original sign-in below.
+                    </p>
+                  )}
                 </div>
               )}
 
               <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  onClick={handleVerifyAndCreate}
-                  disabled={verifyLoading || !code}
-                  className="w-full bg-[var(--accent)] text-[var(--bg-0)] hover:bg-[var(--accent)]/90"
-                >
-                  {verifyLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="mr-2 h-4 w-4" />
-                      Verify & continue
-                    </>
-                  )}
-                </Button>
+                {alreadyRegistered ? (
+                  <Link
+                    href="/auth/login"
+                    className="inline-flex w-full items-center justify-center rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--bg-0)] transition-opacity hover:opacity-90"
+                  >
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Sign in instead
+                  </Link>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={handleVerifyAndCreate}
+                    disabled={verifyLoading || !code}
+                    className="w-full bg-[var(--accent)] text-[var(--bg-0)] hover:bg-[var(--accent)]/90"
+                  >
+                    {verifyLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        Verify & continue
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setCode(generateVerificationCode())}
                   className="w-full text-[var(--ink-mute)] hover:text-[var(--ink)]"
+                  disabled={alreadyRegistered}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Generate a new code
