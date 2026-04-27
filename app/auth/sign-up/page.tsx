@@ -10,6 +10,8 @@ import {
   CheckCircle2,
   Copy,
   Loader2,
+  Mail,
+  Pencil,
   RefreshCw,
   ShieldCheck,
   User,
@@ -20,14 +22,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-// Two-step Roblox-only sign-up:
+// Three-step Roblox sign-up:
 //   1. Look up Roblox username via /api/roblox/lookup (roproxy.com)
-//   2. Ask the user to paste a verification code into their Roblox bio,
-//      then call /api/roblox/auth which:
-//        - re-verifies the bio code on the server
-//        - creates (or refreshes) a Supabase user keyed off the Roblox id
-//        - returns a magic-link `token_hash` we can verify on the client to
-//          establish a session — no email or password ever required.
+//   2. Verify ownership by pasting a code into the Roblox bio. The
+//      /api/roblox/auth route re-checks the bio, provisions a Supabase user
+//      keyed off the Roblox id, and returns a magic-link token_hash that we
+//      exchange client-side for a real session.
+//   3. Capture a *notification* email for raffle entries and order updates.
+//      We don't send a verification link — we just ask the user to confirm
+//      they typed it correctly, then write it onto their Supabase user as
+//      `notification_email` in user_metadata and push them to /dashboard.
 
 type RobloxUser = {
   id: number
@@ -36,11 +40,13 @@ type RobloxUser = {
   avatarUrl: string | null
 }
 
-type Step = 1 | 2
+// "confirm-email" is a sub-state of Step 3 ("Are you sure?" screen).
+type Step = 1 | 2 | 3 | "confirm-email"
 
-const STEP_LABELS: Record<Step, string> = {
+const STEP_LABELS: Record<Exclude<Step, "confirm-email">, string> = {
   1: "Find account",
   2: "Verify ownership",
+  3: "Notifications",
 }
 
 function generateVerificationCode(): string {
@@ -54,6 +60,10 @@ function generateVerificationCode(): string {
   }
   return `FRUITS-${out}`
 }
+
+// Lightweight RFC-5322-ish email check. Real validation happens server-side
+// the first time we actually send to the address.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -70,6 +80,10 @@ export default function SignUpPage() {
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // Step 3 state
+  const [email, setEmail] = useState("")
+  const [savingEmail, setSavingEmail] = useState(false)
+
   const [error, setError] = useState<string | null>(null)
 
   // Generate the verification code as soon as we know who the Roblox user is.
@@ -77,7 +91,16 @@ export default function SignUpPage() {
     if (step === 2 && robloxUser && !code) setCode(generateVerificationCode())
   }, [step, robloxUser, code])
 
-  const progressPercent = useMemo(() => ({ 1: 50, 2: 100 })[step], [step])
+  // Progress bar maps the linear flow. The "confirm-email" sub-state still
+  // lives on step 3 so the bar stays full once we get there.
+  const progressPercent = useMemo(() => {
+    if (step === 1) return 33
+    if (step === 2) return 66
+    return 100
+  }, [step])
+
+  const labelStep: Exclude<Step, "confirm-email"> =
+    step === "confirm-email" ? 3 : step
 
   /* -------------------------------- handlers -------------------------------- */
 
@@ -148,12 +171,48 @@ export default function SignUpPage() {
       })
       if (verifyError) throw verifyError
 
-      router.push("/dashboard")
-      router.refresh()
+      // Account is created and the visitor is signed in. Move on to the
+      // notifications email step instead of going straight to the dashboard.
+      setStep(3)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setVerifyLoading(false)
+    }
+  }
+
+  const handleEmailContinue = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError("Please enter a valid email address.")
+      return
+    }
+    setStep("confirm-email")
+  }
+
+  const handleEmailConfirm = async () => {
+    setError(null)
+    setSavingEmail(true)
+    try {
+      const supabase = createClient()
+      // The visitor already has a session from step 2, so updateUser writes
+      // to *their own* row — no service role needed.
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          notification_email: email.trim().toLowerCase(),
+          notification_email_confirmed_at: new Date().toISOString(),
+        },
+      })
+      if (updateError) throw updateError
+      router.push("/dashboard")
+      router.refresh()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Couldn't save your email")
+      // Take them back to the editable form so they can retry.
+      setStep(3)
+    } finally {
+      setSavingEmail(false)
     }
   }
 
@@ -175,17 +234,24 @@ export default function SignUpPage() {
         <div className="w-full max-w-md">
           {/* Brand */}
           <div className="mb-6 flex items-center justify-center gap-2">
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent)]">
-              <span className="text-lg font-bold text-[var(--bg-0)]">F</span>
-            </div>
+            <span className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl bg-[var(--bg-2)] ring-1 ring-[var(--line)]">
+              <Image
+                src="/logo-dragon.png"
+                alt="fruits.place dragon mascot"
+                width={48}
+                height={48}
+                priority
+                className="h-full w-full object-cover"
+              />
+            </span>
             <span className="text-xl font-semibold text-[var(--ink)]">fruits.place</span>
           </div>
 
           {/* Progress */}
           <div className="mb-8">
             <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wider text-[var(--ink-mute)]">
-              <span>{`Step ${step} of 2`}</span>
-              <span>{STEP_LABELS[step]}</span>
+              <span>{`Step ${labelStep} of 3`}</span>
+              <span>{STEP_LABELS[labelStep]}</span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-2)]">
               <div
@@ -207,7 +273,7 @@ export default function SignUpPage() {
                 </h1>
                 <p className="text-sm leading-relaxed text-[var(--ink-mute)]">
                   Enter your Roblox username so we can deliver items, tier perks, and giveaway
-                  prizes directly to you. No email needed.
+                  prizes directly to you.
                 </p>
               </div>
 
@@ -263,7 +329,7 @@ export default function SignUpPage() {
             </section>
           )}
 
-          {/* Step 2: bio verification — also the final step now */}
+          {/* Step 2: bio verification */}
           {step === 2 && robloxUser && (
             <section aria-labelledby="step-2-heading">
               <div className="mb-6 text-center">
@@ -274,8 +340,7 @@ export default function SignUpPage() {
                   Verify it&apos;s really you
                 </h1>
                 <p className="text-sm leading-relaxed text-[var(--ink-mute)]">
-                  Add the code below to your Roblox profile description, then click Verify. This
-                  is the last step — we&apos;ll create your account as soon as we see the code.
+                  Add the code below to your Roblox profile description, then click Verify.
                   You can remove the code from your bio afterwards.
                 </p>
               </div>
@@ -366,12 +431,12 @@ export default function SignUpPage() {
                   {verifyLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying & creating account...
+                      Verifying...
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="mr-2 h-4 w-4" />
-                      Verify & finish sign up
+                      Verify & continue
                     </>
                   )}
                 </Button>
@@ -383,6 +448,133 @@ export default function SignUpPage() {
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Generate a new code
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {/* Step 3a: capture notification email */}
+          {step === 3 && (
+            <section aria-labelledby="step-3-heading">
+              <div className="mb-6 text-center">
+                <h1
+                  id="step-3-heading"
+                  className="mb-2 text-2xl font-semibold text-[var(--ink)]"
+                >
+                  Where should we send updates?
+                </h1>
+                <p className="text-sm leading-relaxed text-[var(--ink-mute)]">
+                  Add an email to receive raffle entry confirmations, win notifications, and
+                  purchase receipts. We won&apos;t send a verification link — just double-check
+                  it on the next screen.
+                </p>
+              </div>
+
+              <form onSubmit={handleEmailContinue} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="notification-email" className="text-[var(--ink)]">
+                    Email address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-mute)]" />
+                    <Input
+                      id="notification-email"
+                      type="email"
+                      autoFocus
+                      autoComplete="email"
+                      spellCheck={false}
+                      placeholder="you@example.com"
+                      required
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        if (error) setError(null)
+                      }}
+                      className="border-[var(--line)] bg-[var(--bg-1)] pl-9 text-[var(--ink)] placeholder:text-[var(--ink-mute)]"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full bg-[var(--accent)] text-[var(--bg-0)] hover:bg-[var(--accent)]/90"
+                  disabled={email.trim().length === 0}
+                >
+                  Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </form>
+            </section>
+          )}
+
+          {/* Step 3b: confirmation prompt */}
+          {step === "confirm-email" && (
+            <section aria-labelledby="confirm-email-heading">
+              <div className="mb-6 text-center">
+                <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
+                  <Mail className="h-7 w-7" />
+                </div>
+                <h1
+                  id="confirm-email-heading"
+                  className="mb-2 text-2xl font-semibold text-[var(--ink)]"
+                >
+                  Are you sure this is the correct email address?
+                </h1>
+                <p className="text-sm leading-relaxed text-[var(--ink-mute)]">
+                  We&apos;ll use it for raffle entries and purchase notifications. Take a
+                  second to make sure it&apos;s spelled exactly right.
+                </p>
+              </div>
+
+              <div className="mb-6 rounded-xl border border-[var(--line)] bg-[var(--bg-1)] p-4 text-center">
+                <p className="text-xs uppercase tracking-wider text-[var(--ink-mute)]">
+                  Notification email
+                </p>
+                <p className="mt-2 break-all font-mono text-base font-semibold text-[var(--ink)]">
+                  {email}
+                </p>
+              </div>
+
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  onClick={handleEmailConfirm}
+                  disabled={savingEmail}
+                  className="w-full bg-[var(--accent)] text-[var(--bg-0)] hover:bg-[var(--accent)]/90"
+                >
+                  {savingEmail ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Correct
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setStep(3)}
+                  disabled={savingEmail}
+                  className="w-full text-[var(--ink-mute)] hover:text-[var(--ink)]"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit email
                 </Button>
               </div>
             </section>
