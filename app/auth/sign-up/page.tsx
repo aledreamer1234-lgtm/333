@@ -12,7 +12,6 @@ import {
   Loader2,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   User,
 } from "lucide-react"
 
@@ -21,13 +20,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-// Three-step Roblox-verified sign-up wizard:
+// Two-step Roblox-only sign-up:
 //   1. Look up Roblox username via /api/roblox/lookup (roproxy.com)
-//   2. Ask the user to paste a verification code into their Roblox bio
-//      and confirm via /api/roblox/verify
-//   3. Capture an email + password and create the Supabase auth account.
-//      All Roblox info is stored in `user_metadata` so we don't need a
-//      schema migration on the existing profiles table.
+//   2. Ask the user to paste a verification code into their Roblox bio,
+//      then call /api/roblox/auth which:
+//        - re-verifies the bio code on the server
+//        - creates (or refreshes) a Supabase user keyed off the Roblox id
+//        - returns a magic-link `token_hash` we can verify on the client to
+//          establish a session — no email or password ever required.
 
 type RobloxUser = {
   id: number
@@ -36,12 +36,11 @@ type RobloxUser = {
   avatarUrl: string | null
 }
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2
 
 const STEP_LABELS: Record<Step, string> = {
   1: "Find account",
   2: "Verify ownership",
-  3: "Create login",
 }
 
 function generateVerificationCode(): string {
@@ -71,12 +70,6 @@ export default function SignUpPage() {
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // Step 3 state
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [signupLoading, setSignupLoading] = useState(false)
-
   const [error, setError] = useState<string | null>(null)
 
   // Generate the verification code as soon as we know who the Roblox user is.
@@ -84,7 +77,7 @@ export default function SignUpPage() {
     if (step === 2 && robloxUser && !code) setCode(generateVerificationCode())
   }, [step, robloxUser, code])
 
-  const progressPercent = useMemo(() => ({ 1: 33, 2: 66, 3: 100 })[step], [step])
+  const progressPercent = useMemo(() => ({ 1: 50, 2: 100 })[step], [step])
 
   /* -------------------------------- handlers -------------------------------- */
 
@@ -124,72 +117,43 @@ export default function SignUpPage() {
     }
   }
 
-  const handleVerify = async () => {
+  const handleVerifyAndCreate = async () => {
     if (!robloxUser) return
     setError(null)
     setVerifyLoading(true)
     try {
-      const res = await fetch("/api/roblox/verify", {
+      // The /api/roblox/auth route re-verifies the bio AND creates the user
+      // in a single atomic step, returning a magic-link token we can use to
+      // sign the visitor in immediately.
+      const res = await fetch("/api/roblox/auth", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId: robloxUser.id, code }),
+        body: JSON.stringify({
+          userId: robloxUser.id,
+          code,
+          robloxName: robloxUser.name,
+          displayName: robloxUser.displayName,
+          avatarUrl: robloxUser.avatarUrl,
+        }),
       })
-      const data = (await res.json()) as { verified?: boolean; error?: string }
-      if (!res.ok) throw new Error(data.error ?? "Verification failed")
-      if (!data.verified) {
-        throw new Error(
-          "We couldn't find the code in your Roblox bio yet. Save your profile and try again.",
-        )
+      const data = (await res.json()) as { token_hash?: string; error?: string }
+      if (!res.ok || !data.token_hash) {
+        throw new Error(data.error ?? "Verification failed")
       }
-      setStep(3)
+
+      const supabase = createClient()
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        type: "email",
+        token_hash: data.token_hash,
+      })
+      if (verifyError) throw verifyError
+
+      router.push("/dashboard")
+      router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setVerifyLoading(false)
-    }
-  }
-
-  const handleCreateAccount = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!robloxUser) return
-    setError(null)
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
-      return
-    }
-
-    setSignupLoading(true)
-    try {
-      const supabase = createClient()
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
-            `${window.location.origin}/auth/callback`,
-          data: {
-            // Stored on auth.users.raw_user_meta_data — no schema changes needed.
-            username: robloxUser.name,
-            roblox_id: robloxUser.id,
-            roblox_username: robloxUser.name,
-            roblox_display_name: robloxUser.displayName,
-            roblox_avatar_url: robloxUser.avatarUrl,
-            roblox_verified_at: new Date().toISOString(),
-          },
-        },
-      })
-      if (signUpError) throw signUpError
-      router.push("/auth/sign-up-success")
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
-    } finally {
-      setSignupLoading(false)
     }
   }
 
@@ -220,7 +184,7 @@ export default function SignUpPage() {
           {/* Progress */}
           <div className="mb-8">
             <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wider text-[var(--ink-mute)]">
-              <span>{`Step ${step} of 3`}</span>
+              <span>{`Step ${step} of 2`}</span>
               <span>{STEP_LABELS[step]}</span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-2)]">
@@ -243,7 +207,7 @@ export default function SignUpPage() {
                 </h1>
                 <p className="text-sm leading-relaxed text-[var(--ink-mute)]">
                   Enter your Roblox username so we can deliver items, tier perks, and giveaway
-                  prizes directly to you.
+                  prizes directly to you. No email needed.
                 </p>
               </div>
 
@@ -299,7 +263,7 @@ export default function SignUpPage() {
             </section>
           )}
 
-          {/* Step 2: bio verification */}
+          {/* Step 2: bio verification — also the final step now */}
           {step === 2 && robloxUser && (
             <section aria-labelledby="step-2-heading">
               <div className="mb-6 text-center">
@@ -310,8 +274,9 @@ export default function SignUpPage() {
                   Verify it&apos;s really you
                 </h1>
                 <p className="text-sm leading-relaxed text-[var(--ink-mute)]">
-                  Add the code below to your Roblox profile description, then click Verify. We
-                  only need this once — you can remove the code afterwards.
+                  Add the code below to your Roblox profile description, then click Verify. This
+                  is the last step — we&apos;ll create your account as soon as we see the code.
+                  You can remove the code from your bio afterwards.
                 </p>
               </div>
 
@@ -394,19 +359,19 @@ export default function SignUpPage() {
               <div className="flex flex-col gap-2">
                 <Button
                   type="button"
-                  onClick={handleVerify}
+                  onClick={handleVerifyAndCreate}
                   disabled={verifyLoading || !code}
                   className="w-full bg-[var(--accent)] text-[var(--bg-0)] hover:bg-[var(--accent)]/90"
                 >
                   {verifyLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Checking your bio...
+                      Verifying & creating account...
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="mr-2 h-4 w-4" />
-                      I&apos;ve added the code, verify
+                      Verify & finish sign up
                     </>
                   )}
                 </Button>
@@ -420,93 +385,6 @@ export default function SignUpPage() {
                   Generate a new code
                 </Button>
               </div>
-            </section>
-          )}
-
-          {/* Step 3: credentials */}
-          {step === 3 && robloxUser && (
-            <section aria-labelledby="step-3-heading">
-              <div className="mb-6 text-center">
-                <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
-                  <Sparkles className="h-6 w-6" />
-                </div>
-                <h1
-                  id="step-3-heading"
-                  className="mb-2 text-2xl font-semibold text-[var(--ink)]"
-                >
-                  Almost done, {robloxUser.displayName}
-                </h1>
-                <p className="text-sm leading-relaxed text-[var(--ink-mute)]">
-                  Pick a login email and password. We&apos;ll attach them to your verified Roblox
-                  account.
-                </p>
-              </div>
-
-              <form onSubmit={handleCreateAccount} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-[var(--ink)]">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="border-[var(--line)] bg-[var(--bg-1)] text-[var(--ink)] placeholder:text-[var(--ink-mute)]"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-[var(--ink)]">
-                    Password
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border-[var(--line)] bg-[var(--bg-1)] text-[var(--ink)]"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-[var(--ink)]">
-                    Confirm password
-                  </Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="border-[var(--line)] bg-[var(--bg-1)] text-[var(--ink)]"
-                  />
-                </div>
-
-                {error && (
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
-                    {error}
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full bg-[var(--accent)] text-[var(--bg-0)] hover:bg-[var(--accent)]/90"
-                  disabled={signupLoading}
-                >
-                  {signupLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
-                    </>
-                  ) : (
-                    "Create account"
-                  )}
-                </Button>
-              </form>
             </section>
           )}
 

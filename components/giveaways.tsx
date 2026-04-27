@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Clock, Ticket, Trophy, X, ArrowRight, Gift } from "lucide-react"
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  Gift,
+  Ticket,
+  Trophy,
+  X,
+} from "lucide-react"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 
 // Giveaway items are a curated mix of best sellers across the catalog so the
 // raffle reflects what people actually want. Each entry mirrors the canonical
@@ -100,7 +110,12 @@ const tagColors: Record<Giveaway["tag"], string> = {
   Mythical: "bg-purple-500/20 text-purple-400 border-purple-500/30",
 }
 
-type ModalStep = "form" | "signup-required"
+// Modal flow:
+//   - "form"             → guest enters Roblox username, we then gate on sign-up
+//   - "signup-required"  → guest is told they must sign up to enter
+//   - "entered"          → signed-in users see immediate confirmation since
+//                          their Roblox handle is already verified
+type ModalStep = "form" | "signup-required" | "entered"
 
 export function Giveaways() {
   const [selected, setSelected] = useState<Giveaway | null>(null)
@@ -108,11 +123,43 @@ export function Giveaways() {
   const [username, setUsername] = useState("")
   const [error, setError] = useState<string | null>(null)
 
+  // Pull the visitor's verified Roblox handle from Supabase user metadata so
+  // we can skip the gate for already-signed-in users. Giveaways still require
+  // an account — but if you already have one, entering the raffle is one tap.
+  const [authUser, setAuthUser] = useState<SupabaseUser | null>(null)
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    const supabase = createClient()
+    let active = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setAuthUser(data.user ?? null)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null)
+    })
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
+  }, [])
+
+  const verifiedRobloxName =
+    (authUser?.user_metadata?.roblox_username as string | undefined) ??
+    (authUser?.user_metadata?.username as string | undefined) ??
+    null
+
   const open = (g: Giveaway) => {
     setSelected(g)
-    setStep("form")
-    setUsername("")
     setError(null)
+    if (verifiedRobloxName) {
+      // Signed-in path: skip the form entirely.
+      setUsername(verifiedRobloxName)
+      setStep("entered")
+    } else {
+      setUsername("")
+      setStep("form")
+    }
   }
 
   const close = () => {
@@ -414,6 +461,44 @@ export function Giveaways() {
                     className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--line)] py-2.5 text-sm font-medium text-[var(--ink)] transition-colors hover:bg-[var(--bg-2)]"
                   >
                     I already have an account
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {step === "entered" && (
+              <div className="text-center">
+                <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
+                  <CheckCircle2 className="h-7 w-7" />
+                </div>
+                <h3
+                  id="giveaway-modal-title"
+                  className="mt-4 text-xl font-semibold tracking-tight text-[var(--ink)]"
+                >
+                  You&apos;re in the draw
+                </h3>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[var(--ink-dim)]">
+                  {"Your entry for the "}
+                  <span className="font-medium text-[var(--ink)]">{selected.name}</span>
+                  {" raffle is locked in for "}
+                  <span className="font-mono text-[var(--ink)]">@{username}</span>
+                  {". We'll notify you in-app if you win — no further action needed."}
+                </p>
+
+                <div className="mt-6 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={close}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent)] py-3 text-sm font-semibold text-[var(--bg-0)] transition-opacity hover:opacity-90"
+                  >
+                    Done
+                  </button>
+                  <Link
+                    href="/dashboard"
+                    onClick={close}
+                    className="inline-flex w-full items-center justify-center rounded-lg border border-[var(--line)] py-2.5 text-sm font-medium text-[var(--ink)] transition-colors hover:bg-[var(--bg-2)]"
+                  >
+                    View my entries
                   </Link>
                 </div>
               </div>
