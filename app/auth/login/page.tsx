@@ -114,6 +114,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          mode: "login",
           userId: robloxUser.id,
           code,
           robloxName: robloxUser.name,
