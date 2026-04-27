@@ -179,11 +179,12 @@ export const itemImages: Record<string, string> = {
   Manipulator: spImg("manipulator"),
   "Qin Shi": spImg("qin-shi"),
   // The Sailor Piece "Shadow" weapon shares its product name with the Blox
-  // Fruits "Shadow" fruit. Both games scope their items by `productId` so
-  // overriding the image map by display name only would clash. We sidestep
-  // that by storing Sailor Piece's Shadow under a namespaced key — see
-  // `imageForProduct()` below for the lookup logic.
-  "sailor-piece:Shadow": spImg("shadow"),
+  // Fruits "Shadow" fruit. We DON'T map "Shadow" -> spImg("shadow") here:
+  // the previous file at /public/sailor/shadow.png turned out to be the
+  // Blox Fruits fruit art, not the Sailor weapon. Until correct artwork is
+  // sourced, the SP Shadow card falls back to the themed Sword tile via
+  // `imageForProduct()` returning undefined. The namespaced lookup format
+  // is documented at the resolver below.
   "Cursed Vessel": spImg("cursed-vessel"),
   "Vampire King": spImg("vampire-king"),
   "Strongest of Today": spImg("strongest-of-today"),
