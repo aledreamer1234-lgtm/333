@@ -212,8 +212,10 @@ export const itemImages: Record<string, string> = {
   "Anti Magic": spImg("anti-magic"),
 
   // ===== Sailor Piece — rerolls (qty variants share artwork) ==========
-  // Only Trait & Haki Color reroll crates are sourced from the user's
-  // screenshots. Race/Clan rerolls fall back to the themed Dices tile.
+  // Trait & Haki Color reroll crates are sourced from in-game shop
+  // screenshots (per-quantity art). Clan Reroll uses the official Wix-CDN
+  // artwork, shared across all quantity tiers since the game itself ships
+  // a single icon for the item regardless of pack size.
   "10 Trait Reroll": spImg("trait-reroll-10"),
   "25 Trait Reroll": spImg("trait-reroll-25"),
   "50 Trait Reroll": spImg("trait-reroll-50"),
@@ -222,8 +224,15 @@ export const itemImages: Record<string, string> = {
   "25 Haki Color Reroll": spImg("haki-color-reroll-25"),
   "50 Haki Color Reroll": spImg("haki-color-reroll-50"),
   "100 Haki Color Reroll": spImg("haki-color-reroll-100"),
+  "10 Clan Reroll": spImg("clan-reroll"),
+  "50 Clan Reroll": spImg("clan-reroll"),
+  "250 Clan Reroll": spImg("clan-reroll"),
+  "1000 Clan Reroll": spImg("clan-reroll"),
 
   // ===== Sailor Piece — materials & cosmetic crates ==================
+  // Bloodline Stones / Cosmetic Crates carry per-quantity in-game art;
+  // Passive Shard and Aura Crate ship a single icon in the game so we
+  // reuse the same artwork across every pack size.
   "10 Bloodline Stone": spImg("bloodline-stone-10"),
   "50 Bloodline Stone": spImg("bloodline-stone-50"),
   "250 Bloodline Stone": spImg("bloodline-stone-250"),
@@ -232,6 +241,20 @@ export const itemImages: Record<string, string> = {
   "25 Cosmetic Crate": spImg("cosmetic-crate-25"),
   "50 Cosmetic Crate": spImg("cosmetic-crate-50"),
   "100 Cosmetic Crate": spImg("cosmetic-crate-100"),
+  "10 Passive Shard": spImg("passive-shard"),
+  "50 Passive Shard": spImg("passive-shard"),
+  "250 Passive Shard": spImg("passive-shard"),
+  "1000 Passive Shard": spImg("passive-shard"),
+  "10 Aura Crate": spImg("aura-crate"),
+  "25 Aura Crate": spImg("aura-crate"),
+  "50 Aura Crate": spImg("aura-crate"),
+  "100 Aura Crate": spImg("aura-crate"),
+
+  // ===== Sailor Piece — boosts (one card has real artwork) ===========
+  // Only the 2x Drops boost ships an official icon; the other boost
+  // tiers (2x Money, 2x Gems, 2x EXP, 2x Luck Drop) fall back to the
+  // themed Zap tile until art is sourced.
+  "2x Drops": spImg("boost-2x-drops"),
 
   // ===== Sailor Piece — bundles (full banner art) ====================
   // Names mirror the in-game banners, which list the contents directly
