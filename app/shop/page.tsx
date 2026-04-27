@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Suspense, useMemo, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -327,11 +327,39 @@ function ShopBrowser() {
   )
 }
 
+// Lightweight fallback shown while the search-params dependent browser is
+// hydrating. Next.js 16 requires a Suspense boundary around any consumer of
+// useSearchParams() so the rest of the page can still be statically rendered
+// at build time. Without this the production build fails with
+// "useSearchParams() should be wrapped in a suspense boundary".
+function ShopBrowserFallback() {
+  return (
+    <section className="px-6 py-12">
+      <div className="mx-auto max-w-7xl">
+        <div className="h-7 w-40 rounded bg-[var(--bg-1)]" aria-hidden />
+        <div className="mt-6 h-10 w-64 rounded bg-[var(--bg-1)]" aria-hidden />
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="aspect-[3/4] rounded-xl border border-[var(--line)] bg-[var(--bg-1)]"
+              aria-hidden
+            />
+          ))}
+        </div>
+        <span className="sr-only">Loading shop catalog</span>
+      </div>
+    </section>
+  )
+}
+
 export default function ShopPage() {
   return (
     <main className="min-h-screen bg-[var(--bg-0)]">
       <Header />
-      <ShopBrowser />
+      <Suspense fallback={<ShopBrowserFallback />}>
+        <ShopBrowser />
+      </Suspense>
       <Footer />
     </main>
   )
