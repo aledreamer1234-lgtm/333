@@ -54,28 +54,10 @@ export const productId = (p: Product): string => `${p.game}:${p.name}`
 
 // ---- Image map -----------------------------------------------------------
 // Blox Fruits items use local /items/*.jpg files we ship in /public.
-// Sailor Piece items use the official shop artwork hosted on the Wix CDN.
+// Sailor Piece items use cropped per-card screenshots from the official
+// in-game shop, sliced by scripts/crop-sailor.mjs into /public/sailor/*.png.
 // Cards fall back to a themed icon tile when an entry is missing.
-const wix = (id: string): string => `https://static.wixstatic.com/media/${id}`
-
-// Sailor Piece reroll/material/crate/boost shared images. All quantity
-// variants of the same base item reuse the same artwork — the qty is shown
-// in the product name and price.
-const SP_IMAGES = {
-  twoDrops: wix("c4d9b1_fbe8462bad5b43558c1e150435939dff~mv2.png"),
-  twoLuck: wix("c4d9b1_947e9f2572d54557a68960d838ebcc53~mv2.png"),
-  twoGems: wix("c4d9b1_2c390d0d62814f28861c4c742b0add62~mv2.png"),
-  twoExp: wix("c4d9b1_b536fc1f19d04b09baedb2409bdf752d~mv2.png"),
-  twoMoney: wix("c4d9b1_411cb3116cb247f59c1b3675bab7e04d~mv2.png"),
-  clanReroll: wix("595de3_2f5e8ea6eb8343569076170da1253b77~mv2.webp"),
-  raceReroll: wix("595de3_ea4569f1415e494c96ef5ee2e95cc28f~mv2.png"),
-  traitReroll: wix("595de3_e2ec84f9ac524acbae22f396b2424cb3~mv2.png"),
-  hakiReroll: wix("595de3_52f4917ac8ff4cf0b353a94bd517563a~mv2.jpg"),
-  bloodlineStone: wix("c4d9b1_5a31e43183f649998e329d6b4050c1c7~mv2.png"),
-  passiveShard: wix("c4d9b1_33ef6e3fd56e4f80af37532a532ded66~mv2.png"),
-  auraCrate: wix("c4d9b1_332b52e598c64f52b5cd67dff9451e9a~mv2.png"),
-  cosmeticCrate: wix("595de3_e9ce5b55ee6641b7a483d55a12c6c6c3~mv2.png"),
-}
+const spImg = (slug: string): string => `/sailor/${slug}.png`
 
 export const itemImages: Record<string, string> = {
   // ===== Blox Fruits ==================================================
@@ -182,84 +164,84 @@ export const itemImages: Record<string, string> = {
   "Permanent Dragon Token": "/items/permanent-dragon-token.jpg",
   Fiend: "/items/fiend.jpg",
 
-  // ===== Sailor Piece — boosts =======================================
-  "2x Drops": SP_IMAGES.twoDrops,
-  "2x Luck Drop": SP_IMAGES.twoLuck,
-  "2x Gems": SP_IMAGES.twoGems,
-  "2x EXP (Sailor)": SP_IMAGES.twoExp,
-  "2x Money (Sailor)": SP_IMAGES.twoMoney,
+  // ===== Sailor Piece — weapons (cropped from in-game shop) ==========
+  Excalibur: spImg("excalibur"),
+  Manipulator: spImg("manipulator"),
+  "Qin Shi": spImg("qin-shi"),
+  // The Sailor Piece "Shadow" weapon shares its product name with the Blox
+  // Fruits "Shadow" fruit. Both games scope their items by `productId` so
+  // overriding the image map by display name only would clash. We sidestep
+  // that by storing Sailor Piece's Shadow under a namespaced key — see
+  // `imageForProduct()` below for the lookup logic.
+  "sailor-piece:Shadow": spImg("shadow"),
+  "Cursed Vessel": spImg("cursed-vessel"),
+  "Vampire King": spImg("vampire-king"),
+  "Strongest of Today": spImg("strongest-of-today"),
+  "Strongest in History": spImg("strongest-in-history"),
+  "Soul Reaper": spImg("soul-reaper"),
+  "Conqueror Haki": spImg("conqueror-haki"),
+  Slime: spImg("slime"),
+  Yamato: spImg("yamato"),
+  "King of Heroes": spImg("king-of-heroes"),
+  "Demon King": spImg("demon-king"),
+  "Shadow Monarch": spImg("shadow-monarch"),
+  "Sin of Pride": spImg("sin-of-pride"),
+  "Blessed Maiden": spImg("blessed-maiden"),
+  "True Manipulator": spImg("true-manipulator"),
+  "Corrupted Excalibur": spImg("corrupted-excalibur"),
+  "Strongest Shinobi": spImg("strongest-shinobi"),
+  Atomic: spImg("atomic"),
+  "Abyssal Empress": spImg("abyssal-empress"),
+  "Moon Slayer": spImg("moon-slayer"),
+  "Ice Queen": spImg("ice-queen"),
+  // Premium 1499 specs
+  "The World": spImg("the-world"),
+  "Cosmic Being": spImg("cosmic-being"),
+  "Great Mage": spImg("great-mage"),
+  "Dragon Goddess": spImg("dragon-goddess"),
+  "Anti Magic": spImg("anti-magic"),
 
   // ===== Sailor Piece — rerolls (qty variants share artwork) ==========
-  "10 Clan Reroll": SP_IMAGES.clanReroll,
-  "50 Clan Reroll": SP_IMAGES.clanReroll,
-  "250 Clan Reroll": SP_IMAGES.clanReroll,
-  "1000 Clan Reroll": SP_IMAGES.clanReroll,
-  "10 Race Reroll": SP_IMAGES.raceReroll,
-  "25 Race Reroll": SP_IMAGES.raceReroll,
-  "50 Race Reroll": SP_IMAGES.raceReroll,
-  "100 Race Reroll": SP_IMAGES.raceReroll,
-  "10 Trait Reroll": SP_IMAGES.traitReroll,
-  "25 Trait Reroll": SP_IMAGES.traitReroll,
-  "50 Trait Reroll": SP_IMAGES.traitReroll,
-  "100 Trait Reroll": SP_IMAGES.traitReroll,
-  "10 Haki Color Reroll": SP_IMAGES.hakiReroll,
-  "25 Haki Color Reroll": SP_IMAGES.hakiReroll,
-  "50 Haki Color Reroll": SP_IMAGES.hakiReroll,
-  "100 Haki Color Reroll": SP_IMAGES.hakiReroll,
+  // Only Trait & Haki Color reroll crates are sourced from the user's
+  // screenshots. Race/Clan rerolls fall back to the themed Dices tile.
+  "10 Trait Reroll": spImg("trait-reroll-10"),
+  "25 Trait Reroll": spImg("trait-reroll-25"),
+  "50 Trait Reroll": spImg("trait-reroll-50"),
+  "100 Trait Reroll": spImg("trait-reroll-100"),
+  "10 Haki Color Reroll": spImg("haki-color-reroll-10"),
+  "25 Haki Color Reroll": spImg("haki-color-reroll-25"),
+  "50 Haki Color Reroll": spImg("haki-color-reroll-50"),
+  "100 Haki Color Reroll": spImg("haki-color-reroll-100"),
 
-  // ===== Sailor Piece — crates =======================================
-  "10 Aura Crate": SP_IMAGES.auraCrate,
-  "25 Aura Crate": SP_IMAGES.auraCrate,
-  "50 Aura Crate": SP_IMAGES.auraCrate,
-  "100 Aura Crate": SP_IMAGES.auraCrate,
-  "10 Cosmetic Crate": SP_IMAGES.cosmeticCrate,
-  "25 Cosmetic Crate": SP_IMAGES.cosmeticCrate,
-  "50 Cosmetic Crate": SP_IMAGES.cosmeticCrate,
-  "100 Cosmetic Crate": SP_IMAGES.cosmeticCrate,
+  // ===== Sailor Piece — materials & cosmetic crates ==================
+  "10 Bloodline Stone": spImg("bloodline-stone-10"),
+  "50 Bloodline Stone": spImg("bloodline-stone-50"),
+  "250 Bloodline Stone": spImg("bloodline-stone-250"),
+  "1000 Bloodline Stone": spImg("bloodline-stone-1000"),
+  "10 Cosmetic Crate": spImg("cosmetic-crate-10"),
+  "25 Cosmetic Crate": spImg("cosmetic-crate-25"),
+  "50 Cosmetic Crate": spImg("cosmetic-crate-50"),
+  "100 Cosmetic Crate": spImg("cosmetic-crate-100"),
 
-  // ===== Sailor Piece — materials ====================================
-  "10 Passive Shard": SP_IMAGES.passiveShard,
-  "50 Passive Shard": SP_IMAGES.passiveShard,
-  "250 Passive Shard": SP_IMAGES.passiveShard,
-  "1000 Passive Shard": SP_IMAGES.passiveShard,
-  "10 Bloodline Stone": SP_IMAGES.bloodlineStone,
-  "50 Bloodline Stone": SP_IMAGES.bloodlineStone,
-  "250 Bloodline Stone": SP_IMAGES.bloodlineStone,
-  "1000 Bloodline Stone": SP_IMAGES.bloodlineStone,
-
-  // ===== Sailor Piece — anime-themed sets / bundles ==================
-  "The World + World Outfit (Full Set)": wix("595de3_875213c9853044c19ee4fe581c8ba3d0~mv2.png"),
-  "The World (Spec Set)": wix("595de3_6ec1f2179b224b9b895717728827e488~mv2.png"),
-  "Cosmic Being (Spec Set)": wix("595de3_db2c41845a24486cbe79dd202a216a10~mv2.png"),
-  "Madoka Set": wix("595de3_9d4443d28efc4ec2a3a14541f238f37e~mv2.png"),
-  "Ragna Set": wix("595de3_94a9f33738ff485685d0f52bcb773835~mv2.png"),
-  "Madara (Full Set)": wix("595de3_83cbc1f13b464e508cdf8a2f78427943~mv2.png"),
-  "Madara (Spec)": wix("595de3_314663b3d4814f4ebbaa6a1613a8907b~mv2.png"),
-  "Gilgamesh (Full Set)": wix("595de3_ab1276ae211043999c1c50bf88b7c79b~mv2.png"),
-  "Gilgamesh (Spec Set)": wix("595de3_9d340765e6a94999beee16d558568de8~mv2.png"),
-  "Esdeath / Ice Queen (Full Set)": wix("595de3_960d4c35bb024879936a8c5b1206b54f~mv2.png"),
-  "Blessed Maiden (Full Set)": wix("595de3_6cbe59880c6d4d198efb940295266a8d~mv2.png"),
-  "Kokushibo (Full Set)": wix("595de3_cae01d95e5e94d7b9e91dfe6c56d67eb~mv2.png"),
-  "Kokushibo (Spec Set)": wix("595de3_91774103202b4123b8bb37beefdf092d~mv2.png"),
-  "Saber V2 (Full Set)": wix("595de3_dc61227c3c944e2f9a3a826a69090c8d~mv2.png"),
-  "Sung Jinwoo v1": wix("595de3_3b87569299524e8c80464e2997222776~mv2.png"),
-  "Sung Jinwoo v2": wix("595de3_f886578146744ec3bb13bfeecdfef08e~mv2.png"),
-  "Anos Set": wix("595de3_69ceea623a284f499ed5415a5798fd27~mv2.png"),
-  "Aizen V1 (Spec Set)": wix("595de3_f72b88f83b2c45e2b12031c94e976a4c~mv2.png"),
-  "Aizen v2 (Full Set)": wix("595de3_aa42ea1017e04f7daa019a55c3a894e3~mv2.png"),
-  "Gojo v1 (Set)": wix("595de3_86cba7a1fd8946acaa6d95860d6f50a0~mv2.png"),
-  "Gojo v2 (Full Set)": wix("595de3_c5429ee657354c9488bca8a26ac4296f~mv2.png"),
-  "Sukuna v1 (Set)": wix("595de3_ab3d59367f734f379d875cba23d16a6c~mv2.png"),
-  "Sukuna v2 (Full Set)": wix("595de3_1428ebfc468e42ffbca4e61d106a70f0~mv2.png"),
-  "Yamato Set": wix("595de3_d48bf24fac7e4949a1e946a9f0c8797a~mv2.png"),
-  "Rimuru (Spec Set)": wix("595de3_90b9996f7dfb44d790b01f7adda2e7bf~mv2.png"),
-  "Alucard Set": wix("595de3_5000ad220e624058b6fdcd45628df209~mv2.png"),
-  "Cid v1 (Spec Set)": wix("595de3_3ad98e5780b041b08c0caf0010b70ade~mv2.png"),
-  "Cid v2 (Full Set)": wix("595de3_7adffe39fada48ac959251da2e802f95~mv2.png"),
-  "Qin Shi (Set)": wix("595de3_fe3e5cb353ac408d9e111572a88412b2~mv2.png"),
-  "Ichigo (Set)": wix("595de3_a034746e7a07470894598ef74d605eae~mv2.png"),
-  "Frieren Set (w/ egg)": wix("595de3_187c522c7ead440b9e4fe418270548f3~mv2.png"),
+  // ===== Sailor Piece — bundles (full banner art) ====================
+  "Triad of the Strongest": spImg("bundle-shinobi-trio"),
+  "Ice Queen Set": spImg("bundle-ice-queen-set"),
+  "Cosmic Being + Body": spImg("bundle-cosmic-body"),
+  "Anti Magic + Demon Wing": spImg("bundle-anti-magic-demon-wing"),
+  "The World + Cosmic Being Pair": spImg("bundle-world-cosmic-pair"),
+  "Mythic Quartet (4 Specs)": spImg("bundle-quad-mythics"),
+  "Mythic Trio (3 Specs)": spImg("bundle-trio-mythics"),
+  "The World + World Outfit": spImg("bundle-world-outfit"),
+  "Cosmic Being + Cosmic Outfit": spImg("bundle-cosmic-outfit"),
+  "Great Mage + Mage Outfit": spImg("bundle-mage-outfit"),
+  "Dragon Goddess + Blossom Outfit": spImg("bundle-blossom-outfit"),
 }
+
+// Two games can share a display name (Blox Fruits "Shadow" fruit vs. Sailor
+// Piece "Shadow" weapon). Resolve images by trying the namespaced key first
+// so each game gets the right artwork.
+export const imageForProduct = (p: Product): string | undefined =>
+  itemImages[`${p.game}:${p.name}`] ?? itemImages[p.name]
 
 // =========================================================================
 // Blox Fruits catalog
@@ -413,13 +395,12 @@ const sp = (
   type: ItemType,
 ): Product => ({ name, range, robux, type, game: "sailor-piece" })
 
+// Every weapon below has a cropped per-card screenshot in /public/sailor.
+// Pricing is taken directly from the user-supplied in-game shop screenshots.
 const sailorPieceWeapons: Product[] = [
   sp("Excalibur", "Direct Unlock", 499, "weapon"),
   sp("Cursed Vessel", "Direct Unlock", 499, "weapon"),
-  sp("Limitless Sorcerer", "Direct Unlock", 699, "weapon"),
-  sp("Cursed King", "Direct Unlock", 799, "weapon"),
   sp("Qin Shi", "Direct Unlock", 849, "weapon"),
-  sp("Solo Hunter", "Direct Unlock", 899, "weapon"),
   sp("Soul Reaper", "Direct Unlock", 899, "weapon"),
   sp("Vampire King", "Direct Unlock", 899, "weapon"),
   sp("Manipulator", "Direct Unlock", 949, "weapon"),
@@ -441,42 +422,29 @@ const sailorPieceWeapons: Product[] = [
   sp("Moon Slayer", "Direct Unlock", 1399, "weapon"),
   sp("Ice Queen", "Direct Unlock", 1399, "weapon"),
   sp("Atomic", "Direct Unlock", 1449, "weapon"),
+  // Premium 1499 specs (own row in the screenshots; "Most Bought" tier).
+  sp("The World", "Premium Spec", 1499, "weapon"),
+  sp("Cosmic Being", "Premium Spec", 1499, "weapon"),
+  sp("Great Mage", "Premium Spec", 1499, "weapon"),
+  sp("Dragon Goddess", "Premium Spec", 1499, "weapon"),
+  sp("Anti Magic", "Premium Spec", 1499, "weapon"),
 ]
 
-// Real anime-themed sets sold in the official Sailor Piece shop. These have
-// real artwork from the game's shop document, mirrored on the Wix CDN.
+// Banner bundles cropped from the user's in-game shop screenshots. Each
+// bundle is a horizontal composite (e.g. "Atomic + Strongest Shinobi +
+// Abyssal Empress"). Names are descriptive; prices match the in-game value.
 const sailorPieceBundles: Product[] = [
-  sp("The World + World Outfit (Full Set)", "Full Set", 1499, "bundle"),
-  sp("The World (Spec Set)", "Spec Set", 999, "bundle"),
-  sp("Cosmic Being (Spec Set)", "Spec Set", 999, "bundle"),
-  sp("Madara (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Madara (Spec)", "Spec Set", 999, "bundle"),
-  sp("Gilgamesh (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Gilgamesh (Spec Set)", "Spec Set", 999, "bundle"),
-  sp("Kokushibo (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Kokushibo (Spec Set)", "Spec Set", 999, "bundle"),
-  sp("Aizen v2 (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Aizen V1 (Spec Set)", "Spec Set", 999, "bundle"),
-  sp("Gojo v2 (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Gojo v1 (Set)", "Set", 1149, "bundle"),
-  sp("Sukuna v2 (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Sukuna v1 (Set)", "Set", 1149, "bundle"),
-  sp("Cid v2 (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Cid v1 (Spec Set)", "Spec Set", 999, "bundle"),
-  sp("Sung Jinwoo v2", "Full Set", 1499, "bundle"),
-  sp("Sung Jinwoo v1", "Set", 1149, "bundle"),
-  sp("Saber V2 (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Esdeath / Ice Queen (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Blessed Maiden (Full Set)", "Full Set", 1499, "bundle"),
-  sp("Yamato Set", "Set", 1249, "bundle"),
-  sp("Rimuru (Spec Set)", "Spec Set", 999, "bundle"),
-  sp("Alucard Set", "Set", 1249, "bundle"),
-  sp("Anos Set", "Set", 1249, "bundle"),
-  sp("Qin Shi (Set)", "Set", 1149, "bundle"),
-  sp("Ichigo (Set)", "Set", 1149, "bundle"),
-  sp("Madoka Set", "Set", 1149, "bundle"),
-  sp("Ragna Set", "Set", 1149, "bundle"),
-  sp("Frieren Set (w/ egg)", "Set + Pet Egg", 1599, "bundle"),
+  sp("Triad of the Strongest", "Atomic + Shinobi + Empress", 3349, "bundle"),
+  sp("The World + Cosmic Being Pair", "2x Mythic Specs", 4299, "bundle"),
+  sp("Mythic Quartet (4 Specs)", "World + Cosmic + Mage + Goddess", 4299, "bundle"),
+  sp("Mythic Trio (3 Specs)", "World + Cosmic + Mage", 2999, "bundle"),
+  sp("Ice Queen Set", "Spec + Outfit", 1349, "bundle"),
+  sp("Cosmic Being + Body", "Spec + Outfit", 1349, "bundle"),
+  sp("Anti Magic + Demon Wing", "Spec Pair", 1299, "bundle"),
+  sp("The World + World Outfit", "Spec + Outfit", 1299, "bundle"),
+  sp("Cosmic Being + Cosmic Outfit", "Spec + Outfit", 1299, "bundle"),
+  sp("Great Mage + Mage Outfit", "Spec + Outfit", 1299, "bundle"),
+  sp("Dragon Goddess + Blossom Outfit", "Spec + Outfit", 1299, "bundle"),
 ]
 
 const sailorPieceBoosts: Product[] = [
@@ -549,19 +517,19 @@ const findSp = (name: string): Product => {
   if (!found) throw new Error(`Sailor Piece best-sellers references unknown product: ${name}`)
   return found
 }
-// Curated highlight reel — leans on items that have real artwork so the
-// home page best-sellers row showcases the actual game art.
+// Curated highlight reel — leans on items that have real cropped artwork
+// so the home page best-sellers row showcases the actual game art.
 const sailorPieceBestSellers: Product[] = [
   "Atomic",
-  "Madara (Full Set)",
-  "Gojo v2 (Full Set)",
-  "Sukuna v2 (Full Set)",
-  "Sung Jinwoo v2",
-  "Yamato Set",
-  "Frieren Set (w/ egg)",
-  "250 Clan Reroll",
-  "25 Aura Crate",
-  "2x Drops",
+  "The World",
+  "Cosmic Being",
+  "Yamato",
+  "Mythic Quartet (4 Specs)",
+  "Triad of the Strongest",
+  "Strongest Shinobi",
+  "100 Trait Reroll",
+  "100 Cosmetic Crate",
+  "1000 Bloodline Stone",
 ].map(findSp)
 
 // =========================================================================
