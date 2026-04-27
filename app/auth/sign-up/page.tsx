@@ -49,16 +49,21 @@ const STEP_LABELS: Record<Exclude<Step, "confirm-email">, string> = {
   3: "Notifications",
 }
 
-function generateVerificationCode(): string {
-  // Avoid ambiguous characters (0/O, 1/I) so it's easy to copy by hand.
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-  let out = ""
-  const bytes = new Uint32Array(8)
-  crypto.getRandomValues(bytes)
-  for (let i = 0; i < 8; i++) {
-    out += alphabet[bytes[i] % alphabet.length]
+// Verification codes are minted on the server (HMAC-signed and bound to the
+// Roblox userId we're verifying — see /api/roblox/issue-code). Generating
+// them client-side would be insecure: the server has no way to tell our
+// codes apart from arbitrary user input, which is the bug we're fixing.
+async function fetchVerificationCode(userId: number): Promise<string> {
+  const res = await fetch("/api/roblox/issue-code", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ userId }),
+  })
+  const data = (await res.json()) as { code?: string; error?: string }
+  if (!res.ok || !data.code) {
+    throw new Error(data.error ?? "Couldn't issue a verification code.")
   }
-  return `FRUITS-${out}`
+  return data.code
 }
 
 // Lightweight RFC-5322-ish email check. Real validation happens server-side
@@ -89,9 +94,23 @@ export default function SignUpPage() {
   // "Sign in instead" CTA below the error message rather than a generic toast.
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
 
-  // Generate the verification code as soon as we know who the Roblox user is.
+  // Fetch a freshly-minted, server-signed verification code as soon as we
+  // know who the Roblox user is. Errors surface in the shared banner.
   useEffect(() => {
-    if (step === 2 && robloxUser && !code) setCode(generateVerificationCode())
+    if (step !== 2 || !robloxUser || code) return
+    let cancelled = false
+    fetchVerificationCode(robloxUser.id)
+      .then((c) => {
+        if (!cancelled) setCode(c)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Couldn't issue a code.")
+        }
+      })
+    return () => {
+      cancelled = true
+    }
   }, [step, robloxUser, code])
 
   // Progress bar maps the linear flow. The "confirm-email" sub-state still
@@ -478,7 +497,20 @@ export default function SignUpPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setCode(generateVerificationCode())}
+                  onClick={() => {
+                    if (!robloxUser) return
+                    setError(null)
+                    setCode("")
+                    fetchVerificationCode(robloxUser.id)
+                      .then(setCode)
+                      .catch((err: unknown) =>
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "Couldn't issue a code.",
+                        ),
+                      )
+                  }}
                   className="w-full text-[var(--ink-mute)] hover:text-[var(--ink)]"
                   disabled={alreadyRegistered}
                 >

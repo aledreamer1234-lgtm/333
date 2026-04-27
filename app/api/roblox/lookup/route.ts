@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server"
+import { limit } from "@/lib/rate-limit"
 import { robloxErrorMessage, robloxFetch } from "@/lib/roblox"
 
 // Resolves a Roblox username to its profile and fetches the user's avatar
 // headshot. We try the official Roblox API first and fall back to roproxy
 // mirrors so a single host being rate-limited (429) doesn't break sign-up.
+//
+// Rate-limited per IP so this endpoint can't be abused as a free Roblox
+// profile-scraping proxy.
 
 export const runtime = "nodejs"
 
@@ -11,6 +15,9 @@ type RoUser = { id: number; name: string; displayName: string }
 type RoThumb = { targetId: number; state: string; imageUrl: string | null }
 
 export async function POST(req: Request) {
+  const limited = limit(req, "roblox-lookup", { limit: 30, windowMs: 60_000 })
+  if (limited) return limited
+
   let body: { username?: unknown }
   try {
     body = await req.json()

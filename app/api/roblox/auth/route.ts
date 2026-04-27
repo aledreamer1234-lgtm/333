@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { limit } from "@/lib/rate-limit"
 import { robloxErrorMessage, robloxFetch } from "@/lib/roblox"
+import { verifyCode, verifyFailureMessage } from "@/lib/verify-code"
 
 // Server endpoint that ties a Roblox-bio verification to a Supabase session,
 // without ever asking the user for an email or password.
@@ -24,6 +26,34 @@ function syntheticEmail(robloxId: number) {
   return `roblox-${robloxId}@${SYNTHETIC_EMAIL_DOMAIN}`
 }
 
+// Avatar URLs come from Roblox's CDNs via the lookup route. We accept ONLY
+// https URLs hosted on a known Roblox / RoProxy domain so a malicious client
+// can't stuff arbitrary URLs (javascript:, data:, attacker-controlled hosts)
+// into our user_metadata, where they'd later render as the dashboard avatar.
+const AVATAR_HOST_SUFFIXES = [
+  "rbxcdn.com",
+  "roblox.com",
+  "roproxy.com",
+  "rprxy.xyz",
+]
+function sanitizeAvatarUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const trimmed = raw.trim()
+  if (!trimmed || trimmed.length > 1024) return null
+  let url: URL
+  try {
+    url = new URL(trimmed)
+  } catch {
+    return null
+  }
+  if (url.protocol !== "https:") return null
+  const host = url.hostname.toLowerCase()
+  if (!AVATAR_HOST_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`))) {
+    return null
+  }
+  return url.toString()
+}
+
 type Body = {
   userId?: unknown
   code?: unknown
@@ -41,6 +71,12 @@ type Body = {
 type RoUserDetails = { description?: string | null }
 
 export async function POST(req: Request) {
+  // This route both creates Supabase users AND issues session tokens. We
+  // throttle aggressively (10/min/IP) so it can't be used to spam-fill the
+  // Supabase user pool or brute-force codes.
+  const limited = limit(req, "roblox-auth", { limit: 10, windowMs: 60_000 })
+  if (limited) return limited
+
   let body: Body
   try {
     body = (await req.json()) as Body
@@ -50,21 +86,22 @@ export async function POST(req: Request) {
 
   // ---- input validation ----
   const userId =
-    typeof body.userId === "number"
+    typeof body.userId === "number" && Number.isInteger(body.userId)
       ? body.userId
       : typeof body.userId === "string" && /^\d+$/.test(body.userId)
         ? Number(body.userId)
         : null
   const code = typeof body.code === "string" ? body.code.trim() : ""
-  const robloxName = typeof body.robloxName === "string" ? body.robloxName.trim() : ""
+  const robloxName =
+    typeof body.robloxName === "string" ? body.robloxName.trim().slice(0, 64) : ""
   const displayName =
     typeof body.displayName === "string" && body.displayName.trim().length > 0
-      ? body.displayName.trim()
+      ? body.displayName.trim().slice(0, 128)
       : robloxName
-  const avatarUrl =
-    typeof body.avatarUrl === "string" && body.avatarUrl.trim().length > 0
-      ? body.avatarUrl
-      : null
+  // Avatar URLs come from Roblox CDNs. Reject anything that isn't a https URL
+  // pointing at a known Roblox host so a malicious client can't stuff
+  // arbitrary URLs into our user_metadata.
+  const avatarUrl = sanitizeAvatarUrl(body.avatarUrl)
   const mode: "signup" | "login" =
     body.mode === "signup" ? "signup" : "login"
 
@@ -74,9 +111,16 @@ export async function POST(req: Request) {
       { status: 400 },
     )
   }
-  if (!/^FRUITS-[A-Z0-9]{6,12}$/.test(code)) {
+
+  // The submitted code MUST be one our server minted for this exact userId
+  // and still within its TTL — see lib/verify-code.ts. This is the single
+  // most important check in this route: it kills the entire phishing path
+  // where an attacker tricks the victim into pasting an attacker-supplied
+  // code into their own bio.
+  const codeCheck = verifyCode(userId, code)
+  if (!codeCheck.ok) {
     return NextResponse.json(
-      { error: "Invalid verification code format." },
+      { error: verifyFailureMessage(codeCheck.reason) },
       { status: 400 },
     )
   }

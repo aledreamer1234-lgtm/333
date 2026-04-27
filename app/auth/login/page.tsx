@@ -39,13 +39,21 @@ const STEP_LABELS: Record<Step, string> = {
   2: "Verify ownership",
 }
 
-function generateVerificationCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-  let out = ""
-  const bytes = new Uint32Array(8)
-  crypto.getRandomValues(bytes)
-  for (let i = 0; i < 8; i++) out += alphabet[bytes[i] % alphabet.length]
-  return `FRUITS-${out}`
+// Verification codes are minted on the server (HMAC-signed and bound to the
+// Roblox userId we're verifying — see /api/roblox/issue-code). Generating
+// them client-side would be insecure: the server has no way to tell our
+// codes apart from arbitrary user input, which is the bug we're fixing.
+async function fetchVerificationCode(userId: number): Promise<string> {
+  const res = await fetch("/api/roblox/issue-code", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ userId }),
+  })
+  const data = (await res.json()) as { code?: string; error?: string }
+  if (!res.ok || !data.code) {
+    throw new Error(data.error ?? "Couldn't issue a verification code.")
+  }
+  return data.code
 }
 
 export default function LoginPage() {
@@ -63,8 +71,23 @@ export default function LoginPage() {
 
   const [error, setError] = useState<string | null>(null)
 
+  // Lazily fetch a freshly-minted code from the server when we land on step 2.
+  // Errors surface in the same banner the rest of the page uses.
   useEffect(() => {
-    if (step === 2 && robloxUser && !code) setCode(generateVerificationCode())
+    if (step !== 2 || !robloxUser || code) return
+    let cancelled = false
+    fetchVerificationCode(robloxUser.id)
+      .then((c) => {
+        if (!cancelled) setCode(c)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Couldn't issue a code.")
+        }
+      })
+    return () => {
+      cancelled = true
+    }
   }, [step, robloxUser, code])
 
   const progressPercent = useMemo(() => ({ 1: 50, 2: 100 })[step], [step])
@@ -353,7 +376,20 @@ export default function LoginPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setCode(generateVerificationCode())}
+                  onClick={() => {
+                    if (!robloxUser) return
+                    setError(null)
+                    setCode("")
+                    fetchVerificationCode(robloxUser.id)
+                      .then(setCode)
+                      .catch((err: unknown) =>
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "Couldn't issue a code.",
+                        ),
+                      )
+                  }}
                   className="w-full text-[var(--ink-mute)] hover:text-[var(--ink)]"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
