@@ -494,6 +494,13 @@ export function Checkout() {
                   </span>
 
                   <div className="flex-1">
+                    {/* Username input. Always editable — even after the user
+                        signs in with Roblox, they can retype to gift to a
+                        friend. The `verifiedRobloxName` value is used purely
+                        as a default and to short-circuit the lookup against a
+                        previously confirmed account; it does not lock the
+                        field. Border/icon colors below reflect the live
+                        lookup state. */}
                     <input
                       id="roblox"
                       type="text"
@@ -505,8 +512,6 @@ export function Checkout() {
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}
-                      readOnly={Boolean(verifiedRobloxName)}
-                      aria-readonly={Boolean(verifiedRobloxName)}
                       aria-invalid={
                         lookup.kind === "not_found" ||
                         lookup.kind === "invalid_format"
@@ -518,19 +523,17 @@ export function Checkout() {
                               lookup.kind === "invalid_format"
                             ? "border-red-500/50 focus:border-red-500"
                             : "border-[var(--line)] focus:border-[var(--accent)]"
-                      } ${verifiedRobloxName ? "cursor-not-allowed opacity-80" : ""}`}
+                      }`}
                     />
 
-                    {/* Live status line under the input. */}
+                    {/* Live status line under the input. The same five states
+                        render whether or not the user is signed in — there
+                        is no distinct "locked" state since the field is
+                        always editable. */}
                     <div className="mt-1.5 min-h-[1rem] text-xs">
-                      {lookup.kind === "idle" && !verifiedRobloxName && (
+                      {lookup.kind === "idle" && (
                         <span className="text-[var(--ink-mute)]">
                           We&apos;ll look up your avatar to confirm the username.
-                        </span>
-                      )}
-                      {verifiedRobloxName && lookup.kind === "found" && (
-                        <span className="text-[var(--accent)]">
-                          Locked to your verified Roblox account.
                         </span>
                       )}
                       {lookup.kind === "checking" && (
@@ -538,7 +541,7 @@ export function Checkout() {
                           Checking Roblox…
                         </span>
                       )}
-                      {lookup.kind === "found" && !verifiedRobloxName && (
+                      {lookup.kind === "found" && (
                         <span className="text-[var(--accent)]">
                           Found{" "}
                           <span className="font-mono">@{lookup.name}</span>
