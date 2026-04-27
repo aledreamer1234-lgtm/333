@@ -15,6 +15,7 @@ import {
   Gift,
   Layers,
   Plus,
+  ShoppingBag,
   Sparkles,
   Sword,
   TrendingUp,
@@ -381,12 +382,15 @@ export function Shop() {
           </Link>
         </div>
 
-        {/* Top-level game switcher (Blox Fruits / Sailor Piece). Sized as
-            big touch-friendly pills per the wireframe. */}
+        {/* Top-level game switcher. Two large artwork cards (per the
+            reference design): full-bleed game art, game name in the
+            bottom-left, "X+ Sold" pill below it. The active card is fully
+            saturated with an accent ring; the inactive card is dimmed and
+            slightly desaturated so the selection state reads at a glance. */}
         <div
           role="tablist"
           aria-label="Shop by game"
-          className="mb-10 inline-flex flex-wrap gap-2 rounded-2xl border border-[var(--line)] bg-[var(--bg-1)] p-1.5"
+          className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5"
         >
           {GAMES.map((g) => {
             const selected = g.id === activeGame
@@ -396,13 +400,37 @@ export function Shop() {
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setActiveGame(g.id)}
-                className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+                className={`group relative aspect-[16/7] overflow-hidden rounded-2xl border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-0)] ${
                   selected
-                    ? "bg-[var(--ink)] text-[var(--bg-0)]"
-                    : "text-[var(--ink-mute)] hover:bg-[var(--bg-2)] hover:text-[var(--ink)]"
+                    ? "border-[var(--accent)] shadow-[0_0_0_1px_var(--accent),0_8px_32px_-8px_rgba(0,0,0,0.5)]"
+                    : "border-[var(--line)] opacity-70 hover:opacity-100 hover:border-[var(--line-strong)]"
                 }`}
               >
-                {g.label}
+                <Image
+                  src={g.art}
+                  alt={`${g.label} promotional artwork`}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                  className={`object-cover transition-all duration-300 ${
+                    selected ? "scale-100" : "scale-[1.02] saturate-[0.85] group-hover:saturate-100"
+                  }`}
+                  priority={selected}
+                />
+                {/* Bottom gradient so the title + sold pill stay legible
+                    against any artwork. */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"
+                />
+                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-4 sm:p-5">
+                  <h3 className="text-2xl font-semibold leading-tight text-white drop-shadow-md sm:text-3xl">
+                    {g.label}
+                  </h3>
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/55 px-3 py-1 text-xs font-medium text-white/95 backdrop-blur-sm ring-1 ring-white/15">
+                    <ShoppingBag className="h-3.5 w-3.5" aria-hidden />
+                    {g.sold}
+                  </span>
+                </div>
               </button>
             )
           })}

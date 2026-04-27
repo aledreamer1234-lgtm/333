@@ -13,16 +13,26 @@
 
 export type Game = "blox-fruits" | "sailor-piece"
 
-export const GAMES: { id: Game; label: string; tagline: string }[] = [
+export const GAMES: {
+  id: Game
+  label: string
+  tagline: string
+  art: string
+  sold: string
+}[] = [
   {
     id: "blox-fruits",
     label: "Blox Fruits",
     tagline: "Fruits, gamepasses, EXP boosts, currency & limited skins",
+    art: "/games/blox-fruits.png",
+    sold: "342,108+ Sold",
   },
   {
     id: "sailor-piece",
     label: "Sailor Piece",
     tagline: "Weapons, specs, sets, rerolls, crates & materials",
+    art: "/games/sailor-piece.png",
+    sold: "130,801+ Sold",
   },
 ]
 
