@@ -120,10 +120,15 @@ export async function POST(req: Request) {
 
   // Try to create the user. If they already exist we'll update their metadata
   // after the magic link is generated (we use it to find the user id).
+  //
+  // Bcrypt (used by GoTrue) caps passwords at 72 bytes — two UUIDs joined with
+  // a dash is 73 bytes which crashes the auth server with a panic. A single
+  // UUID is 36 chars, well under the limit, and the user never sees or types
+  // it; Supabase only hashes it for storage.
   const randomPassword =
     typeof crypto.randomUUID === "function"
-      ? `${crypto.randomUUID()}-${crypto.randomUUID()}`
-      : `${Math.random().toString(36).slice(2)}${Date.now()}`
+      ? crypto.randomUUID()
+      : `${Math.random().toString(36).slice(2)}${Date.now()}`.slice(0, 64)
 
   const { error: createError } = await admin.auth.admin.createUser({
     email,
