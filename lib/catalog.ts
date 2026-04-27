@@ -224,13 +224,16 @@ export const itemImages: Record<string, string> = {
   "100 Cosmetic Crate": spImg("cosmetic-crate-100"),
 
   // ===== Sailor Piece — bundles (full banner art) ====================
-  "Triad of the Strongest": spImg("bundle-shinobi-trio"),
-  "Ice Queen Set": spImg("bundle-ice-queen-set"),
-  "Cosmic Being + Body": spImg("bundle-cosmic-body"),
+  // Names mirror the in-game banners, which list the contents directly
+  // rather than giving each bundle its own name.
+  "Atomic + Strongest Shinobi + Abyssal Empress": spImg("bundle-shinobi-trio"),
+  "Ice Queen + Ice Queen Outfit": spImg("bundle-ice-queen-set"),
+  "Cosmic Being + Cosmic Body": spImg("bundle-cosmic-body"),
   "Anti Magic + Demon Wing": spImg("bundle-anti-magic-demon-wing"),
-  "The World + Cosmic Being Pair": spImg("bundle-world-cosmic-pair"),
-  "Mythic Quartet (4 Specs)": spImg("bundle-quad-mythics"),
-  "Mythic Trio (3 Specs)": spImg("bundle-trio-mythics"),
+  "The World + Cosmic Being": spImg("bundle-world-cosmic-pair"),
+  "The World + Cosmic Being + Great Mage + Dragon Goddess":
+    spImg("bundle-quad-mythics"),
+  "The World + Cosmic Being + Great Mage": spImg("bundle-trio-mythics"),
   "The World + World Outfit": spImg("bundle-world-outfit"),
   "Cosmic Being + Cosmic Outfit": spImg("bundle-cosmic-outfit"),
   "Great Mage + Mage Outfit": spImg("bundle-mage-outfit"),
@@ -397,54 +400,58 @@ const sp = (
 
 // Every weapon below has a cropped per-card screenshot in /public/sailor.
 // Pricing is taken directly from the user-supplied in-game shop screenshots.
+// The subtitle string mirrors the in-game shop tab name: "Weapon Spec" for
+// the regular tier and "Mythic Spec" for the 1499 Most Bought row.
 const sailorPieceWeapons: Product[] = [
-  sp("Excalibur", "Direct Unlock", 499, "weapon"),
-  sp("Cursed Vessel", "Direct Unlock", 499, "weapon"),
-  sp("Qin Shi", "Direct Unlock", 849, "weapon"),
-  sp("Soul Reaper", "Direct Unlock", 899, "weapon"),
-  sp("Vampire King", "Direct Unlock", 899, "weapon"),
-  sp("Manipulator", "Direct Unlock", 949, "weapon"),
-  sp("Conqueror Haki", "Direct Unlock", 999, "weapon"),
-  sp("Shadow", "Direct Unlock", 999, "weapon"),
-  sp("Strongest of Today", "Direct Unlock", 1049, "weapon"),
-  sp("Strongest in History", "Direct Unlock", 1099, "weapon"),
-  sp("Slime", "Direct Unlock", 1149, "weapon"),
-  sp("King of Heroes", "Direct Unlock", 1199, "weapon"),
-  sp("Yamato", "Direct Unlock", 1249, "weapon"),
-  sp("Demon King", "Direct Unlock", 1249, "weapon"),
-  sp("Sin of Pride", "Direct Unlock", 1249, "weapon"),
-  sp("Shadow Monarch", "Direct Unlock", 1299, "weapon"),
-  sp("Blessed Maiden", "Direct Unlock", 1349, "weapon"),
-  sp("Corrupted Excalibur", "Direct Unlock", 1349, "weapon"),
-  sp("True Manipulator", "Direct Unlock", 1399, "weapon"),
-  sp("Strongest Shinobi", "Direct Unlock", 1399, "weapon"),
-  sp("Abyssal Empress", "Direct Unlock", 1399, "weapon"),
-  sp("Moon Slayer", "Direct Unlock", 1399, "weapon"),
-  sp("Ice Queen", "Direct Unlock", 1399, "weapon"),
-  sp("Atomic", "Direct Unlock", 1449, "weapon"),
-  // Premium 1499 specs (own row in the screenshots; "Most Bought" tier).
-  sp("The World", "Premium Spec", 1499, "weapon"),
-  sp("Cosmic Being", "Premium Spec", 1499, "weapon"),
-  sp("Great Mage", "Premium Spec", 1499, "weapon"),
-  sp("Dragon Goddess", "Premium Spec", 1499, "weapon"),
-  sp("Anti Magic", "Premium Spec", 1499, "weapon"),
+  sp("Excalibur", "Weapon Spec", 499, "weapon"),
+  sp("Cursed Vessel", "Weapon Spec", 499, "weapon"),
+  sp("Qin Shi", "Weapon Spec", 849, "weapon"),
+  sp("Soul Reaper", "Weapon Spec", 899, "weapon"),
+  sp("Vampire King", "Weapon Spec", 899, "weapon"),
+  sp("Manipulator", "Weapon Spec", 949, "weapon"),
+  sp("Conqueror Haki", "Weapon Spec", 999, "weapon"),
+  sp("Shadow", "Weapon Spec", 999, "weapon"),
+  sp("Strongest of Today", "Weapon Spec", 1049, "weapon"),
+  sp("Strongest in History", "Weapon Spec", 1099, "weapon"),
+  sp("Slime", "Weapon Spec", 1149, "weapon"),
+  sp("King of Heroes", "Weapon Spec", 1199, "weapon"),
+  sp("Yamato", "Weapon Spec", 1249, "weapon"),
+  sp("Demon King", "Weapon Spec", 1249, "weapon"),
+  sp("Sin of Pride", "Weapon Spec", 1249, "weapon"),
+  sp("Shadow Monarch", "Weapon Spec", 1299, "weapon"),
+  sp("Blessed Maiden", "Weapon Spec", 1349, "weapon"),
+  sp("Corrupted Excalibur", "Weapon Spec", 1349, "weapon"),
+  sp("True Manipulator", "Weapon Spec", 1399, "weapon"),
+  sp("Strongest Shinobi", "Weapon Spec", 1399, "weapon"),
+  sp("Abyssal Empress", "Weapon Spec", 1399, "weapon"),
+  sp("Moon Slayer", "Weapon Spec", 1399, "weapon"),
+  sp("Ice Queen", "Weapon Spec", 1399, "weapon"),
+  sp("Atomic", "Weapon Spec", 1449, "weapon"),
+  // 1499 "Most Bought" row in the screenshots — labelled separately so the
+  // higher tier is obvious at a glance.
+  sp("The World", "Mythic Spec", 1499, "weapon"),
+  sp("Cosmic Being", "Mythic Spec", 1499, "weapon"),
+  sp("Great Mage", "Mythic Spec", 1499, "weapon"),
+  sp("Dragon Goddess", "Mythic Spec", 1499, "weapon"),
+  sp("Anti Magic", "Mythic Spec", 1499, "weapon"),
 ]
 
-// Banner bundles cropped from the user's in-game shop screenshots. Each
-// bundle is a horizontal composite (e.g. "Atomic + Strongest Shinobi +
-// Abyssal Empress"). Names are descriptive; prices match the in-game value.
+// Banner bundles cropped straight from the in-game shop. Each item's name
+// lists its contents (since the banners themselves don't give the bundle a
+// title), and the subtitle mirrors the in-game value tag ("Insane Value" or
+// "Massive Value"). Prices match what's shown in the screenshots.
 const sailorPieceBundles: Product[] = [
-  sp("Triad of the Strongest", "Atomic + Shinobi + Empress", 3349, "bundle"),
-  sp("The World + Cosmic Being Pair", "2x Mythic Specs", 4299, "bundle"),
-  sp("Mythic Quartet (4 Specs)", "World + Cosmic + Mage + Goddess", 4299, "bundle"),
-  sp("Mythic Trio (3 Specs)", "World + Cosmic + Mage", 2999, "bundle"),
-  sp("Ice Queen Set", "Spec + Outfit", 1349, "bundle"),
-  sp("Cosmic Being + Body", "Spec + Outfit", 1349, "bundle"),
-  sp("Anti Magic + Demon Wing", "Spec Pair", 1299, "bundle"),
-  sp("The World + World Outfit", "Spec + Outfit", 1299, "bundle"),
-  sp("Cosmic Being + Cosmic Outfit", "Spec + Outfit", 1299, "bundle"),
-  sp("Great Mage + Mage Outfit", "Spec + Outfit", 1299, "bundle"),
-  sp("Dragon Goddess + Blossom Outfit", "Spec + Outfit", 1299, "bundle"),
+  sp("Atomic + Strongest Shinobi + Abyssal Empress", "Insane Value", 3349, "bundle"),
+  sp("The World + Cosmic Being", "Insane Value", 4299, "bundle"),
+  sp("The World + Cosmic Being + Great Mage + Dragon Goddess", "Insane Value", 4299, "bundle"),
+  sp("The World + Cosmic Being + Great Mage", "Insane Value", 2999, "bundle"),
+  sp("Ice Queen + Ice Queen Outfit", "Massive Value", 1349, "bundle"),
+  sp("Cosmic Being + Cosmic Body", "Massive Value", 1349, "bundle"),
+  sp("Anti Magic + Demon Wing", "Insane Value", 1299, "bundle"),
+  sp("The World + World Outfit", "Insane Value", 1299, "bundle"),
+  sp("Cosmic Being + Cosmic Outfit", "Insane Value", 1299, "bundle"),
+  sp("Great Mage + Mage Outfit", "Insane Value", 1299, "bundle"),
+  sp("Dragon Goddess + Blossom Outfit", "Insane Value", 1299, "bundle"),
 ]
 
 const sailorPieceBoosts: Product[] = [
@@ -524,8 +531,8 @@ const sailorPieceBestSellers: Product[] = [
   "The World",
   "Cosmic Being",
   "Yamato",
-  "Mythic Quartet (4 Specs)",
-  "Triad of the Strongest",
+  "The World + Cosmic Being + Great Mage + Dragon Goddess",
+  "Atomic + Strongest Shinobi + Abyssal Empress",
   "Strongest Shinobi",
   "100 Trait Reroll",
   "100 Cosmetic Crate",
