@@ -22,13 +22,13 @@ export function Hero() {
         <h1 className="text-4xl font-semibold leading-tight tracking-tight text-[var(--ink)] sm:text-5xl md:text-6xl">
           The marketplace for
           <br />
-          <span className="text-[var(--ink)]">Blox Fruits.</span>
+          <span className="text-[var(--ink)]">Blox Fruits &amp; Sailor Piece.</span>
           <br />
           <span className="text-[var(--ink-mute)]">Delivered fast.</span>
         </h1>
-        
+
         <p className="mx-auto mt-6 max-w-xl text-lg text-[var(--ink-dim)]">
-          Gamepasses, fruits, swords, and more - auto-delivered, lowest prices, zero waiting. Trusted by 480,000+ players.
+          Fruits, gamepasses, weapons, specs, rerolls, crates, and more - auto-delivered, lowest prices, zero waiting. Trusted by 480,000+ players.
         </p>
 
         {/* CTA Buttons */}
@@ -70,8 +70,8 @@ export function Hero() {
           <div className="mt-1 text-sm text-[var(--ink-mute)]">From 28K reviews</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-semibold text-[var(--ink)]">1</div>
-          <div className="mt-1 text-sm text-[var(--ink-mute)]">Game supported</div>
+          <div className="text-2xl font-semibold text-[var(--ink)]">2</div>
+          <div className="mt-1 text-sm text-[var(--ink-mute)]">Games supported</div>
         </div>
       </div>
     </section>
