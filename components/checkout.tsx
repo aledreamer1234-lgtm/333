@@ -1,11 +1,23 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle2, CreditCard, Lock, ShoppingBag, Tag, X } from "lucide-react"
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CreditCard,
+  Lock,
+  LogIn,
+  ShoppingBag,
+  Tag,
+  UserCheck,
+  X,
+} from "lucide-react"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useCart, USD_PER_ROBUX, ROBUX_RATE_USD_PER_1K } from "@/lib/cart-context"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 
 type PaymentMethod = "card" | "paypal" | "crypto"
 
@@ -41,6 +53,49 @@ export function Checkout() {
   const [orderId, setOrderId] = useState<string | null>(null)
   const [promoInput, setPromoInput] = useState("")
   const [promoError, setPromoError] = useState<string | null>(null)
+
+  // ---- auth banner: signed in vs guest ----
+  // Checkout never blocks on auth — guests can place orders. But if the visitor
+  // is already signed in we (a) prefill the verified Roblox username and lock
+  // the field, and (b) show a "Signed in as @name" pill so they know orders
+  // will be linked to their account. Otherwise we surface a small banner with
+  // "Sign in" and "Continue as guest" buttons; the latter just dismisses the
+  // banner so the visitor isn't nagged again on this page load.
+  const [authUser, setAuthUser] = useState<SupabaseUser | null>(null)
+  const [authResolved, setAuthResolved] = useState(false)
+  const [guestDismissed, setGuestDismissed] = useState(false)
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setAuthResolved(true)
+      return
+    }
+    const supabase = createClient()
+    let active = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (!active) return
+      setAuthUser(data.user ?? null)
+      setAuthResolved(true)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null)
+    })
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
+  }, [])
+
+  // When we learn who the signed-in user is, prefill (and lock) their verified
+  // Roblox handle so it can't accidentally drift from the account on file.
+  const verifiedRobloxName =
+    (authUser?.user_metadata?.roblox_username as string | undefined) ??
+    (authUser?.user_metadata?.username as string | undefined) ??
+    null
+
+  useEffect(() => {
+    if (verifiedRobloxName) setRobloxUsername(verifiedRobloxName)
+  }, [verifiedRobloxName])
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault()
@@ -157,6 +212,56 @@ export function Checkout() {
         Confirm your delivery details and payment method.
       </p>
 
+      {/* Auth status banner. Hidden until we've resolved Supabase state to
+          avoid a flash, and hidden again once a guest opts in to checkout. */}
+      {authResolved && authUser && verifiedRobloxName && (
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-4 py-3 text-sm">
+          <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-[var(--accent)]/20 text-[var(--accent)]">
+            <UserCheck className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-[var(--ink)]">
+              Signed in as{" "}
+              <span className="font-mono">@{verifiedRobloxName}</span>
+            </p>
+            <p className="text-xs text-[var(--ink-mute)]">
+              This order will be linked to your verified Roblox account.
+            </p>
+          </div>
+        </div>
+      )}
+      {authResolved && !authUser && !guestDismissed && (
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg-1)] px-4 py-3">
+          <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-[var(--bg-2)] text-[var(--ink-mute)]">
+            <LogIn className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-medium text-[var(--ink)]">
+              Checking out as a guest
+            </p>
+            <p className="text-xs text-[var(--ink-mute)]">
+              Sign in to track this order, unlock tier perks, and skip filling
+              this in next time.
+            </p>
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-2">
+            <Link
+              href="/auth/login"
+              className="rounded-lg bg-[var(--ink)] px-3 py-2 text-xs font-semibold text-[var(--bg-0)] transition-opacity hover:opacity-90"
+            >
+              Sign in
+            </Link>
+            <button
+              type="button"
+              onClick={() => setGuestDismissed(true)}
+              className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-medium text-[var(--ink)] transition-colors hover:bg-[var(--bg-2)]"
+            >
+              Continue as guest
+            </button>
+          </div>
+        </div>
+      )}
+
       <form
         onSubmit={handleSubmit}
         className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]"
@@ -185,10 +290,16 @@ export function Checkout() {
                   onChange={(e) => setRobloxUsername(e.target.value)}
                   placeholder="e.g. PirateKing123"
                   autoComplete="username"
-                  className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-0)] px-3 py-2.5 text-sm text-[var(--ink)] placeholder:text-[var(--ink-mute)] focus:border-[var(--accent)] focus:outline-none"
+                  readOnly={Boolean(verifiedRobloxName)}
+                  aria-readonly={Boolean(verifiedRobloxName)}
+                  className={`w-full rounded-lg border border-[var(--line)] bg-[var(--bg-0)] px-3 py-2.5 text-sm text-[var(--ink)] placeholder:text-[var(--ink-mute)] focus:border-[var(--accent)] focus:outline-none ${
+                    verifiedRobloxName ? "cursor-not-allowed opacity-80" : ""
+                  }`}
                 />
                 <p className="mt-1.5 text-xs text-[var(--ink-mute)]">
-                  Make sure this matches your in-game account exactly.
+                  {verifiedRobloxName
+                    ? "Locked to your verified Roblox account."
+                    : "Make sure this matches your in-game account exactly."}
                 </p>
               </div>
 

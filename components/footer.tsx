@@ -2,6 +2,7 @@
 
 import type { MouseEvent } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import Image from "next/image"
 import Link from "next/link"
 
 type FooterLink = {
@@ -68,9 +69,15 @@ export function Footer() {
           {/* Brand */}
           <div className="space-y-4 md:col-span-2">
             <Link href="/" className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--accent)]">
-                <span className="text-sm font-bold text-[var(--bg-0)]">F</span>
-              </div>
+              <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-[var(--bg-2)] ring-1 ring-[var(--line)]">
+                <Image
+                  src="/logo-dragon.png"
+                  alt="fruits.place dragon mascot"
+                  width={36}
+                  height={36}
+                  className="h-full w-full object-cover"
+                />
+              </span>
               <span className="text-lg font-semibold tracking-tight text-[var(--ink)]">
                 fruits.place
               </span>
