@@ -178,12 +178,6 @@ export const itemImages: Record<string, string> = {
   Excalibur: spImg("excalibur"),
   Manipulator: spImg("manipulator"),
   "Qin Shi": spImg("qin-shi"),
-  // The Sailor Piece "Shadow" weapon shares its product name with the Blox
-  // Fruits "Shadow" fruit. Both games scope their items by `productId` so
-  // overriding the image map by display name only would clash. We sidestep
-  // that by storing Sailor Piece's Shadow under a namespaced key — see
-  // `imageForProduct()` below for the lookup logic.
-  "sailor-piece:Shadow": spImg("shadow"),
   "Cursed Vessel": spImg("cursed-vessel"),
   "Vampire King": spImg("vampire-king"),
   "Strongest of Today": spImg("strongest-of-today"),
@@ -212,8 +206,10 @@ export const itemImages: Record<string, string> = {
   "Anti Magic": spImg("anti-magic"),
 
   // ===== Sailor Piece — rerolls (qty variants share artwork) ==========
-  // Only Trait & Haki Color reroll crates are sourced from the user's
-  // screenshots. Race/Clan rerolls fall back to the themed Dices tile.
+  // Trait & Haki Color reroll crates are sourced from in-game shop
+  // screenshots (per-quantity art). Clan Reroll uses the official Wix-CDN
+  // artwork, shared across all quantity tiers since the game itself ships
+  // a single icon for the item regardless of pack size.
   "10 Trait Reroll": spImg("trait-reroll-10"),
   "25 Trait Reroll": spImg("trait-reroll-25"),
   "50 Trait Reroll": spImg("trait-reroll-50"),
@@ -222,8 +218,19 @@ export const itemImages: Record<string, string> = {
   "25 Haki Color Reroll": spImg("haki-color-reroll-25"),
   "50 Haki Color Reroll": spImg("haki-color-reroll-50"),
   "100 Haki Color Reroll": spImg("haki-color-reroll-100"),
+  "10 Clan Reroll": spImg("clan-reroll"),
+  "50 Clan Reroll": spImg("clan-reroll"),
+  "250 Clan Reroll": spImg("clan-reroll"),
+  "1000 Clan Reroll": spImg("clan-reroll"),
+  "10 Race Reroll": spImg("race-reroll"),
+  "25 Race Reroll": spImg("race-reroll"),
+  "50 Race Reroll": spImg("race-reroll"),
+  "100 Race Reroll": spImg("race-reroll"),
 
   // ===== Sailor Piece — materials & cosmetic crates ==================
+  // Bloodline Stones / Cosmetic Crates carry per-quantity in-game art;
+  // Passive Shard and Aura Crate ship a single icon in the game so we
+  // reuse the same artwork across every pack size.
   "10 Bloodline Stone": spImg("bloodline-stone-10"),
   "50 Bloodline Stone": spImg("bloodline-stone-50"),
   "250 Bloodline Stone": spImg("bloodline-stone-250"),
@@ -232,6 +239,26 @@ export const itemImages: Record<string, string> = {
   "25 Cosmetic Crate": spImg("cosmetic-crate-25"),
   "50 Cosmetic Crate": spImg("cosmetic-crate-50"),
   "100 Cosmetic Crate": spImg("cosmetic-crate-100"),
+  "10 Passive Shard": spImg("passive-shard"),
+  "50 Passive Shard": spImg("passive-shard"),
+  "250 Passive Shard": spImg("passive-shard"),
+  "1000 Passive Shard": spImg("passive-shard"),
+  "10 Aura Crate": spImg("aura-crate"),
+  "25 Aura Crate": spImg("aura-crate"),
+  "50 Aura Crate": spImg("aura-crate"),
+  "100 Aura Crate": spImg("aura-crate"),
+
+  // ===== Sailor Piece — boosts (all five permanent passes) ===========
+  // The Sailor-specific boost catalog appends a "(Sailor)" suffix to the
+  // names that collide with Blox Fruits' own boost catalog (2x Money is
+  // both a Blox Fruits gamepass and a Sailor permanent pass; 2x EXP is
+  // Blox Fruits' time-based boost vs. Sailor's permanent pass), so the
+  // image keys here mirror the Sailor catalog declarations exactly.
+  "2x Drops": spImg("boost-2x-drops"),
+  "2x Money (Sailor)": spImg("boost-2x-money"),
+  "2x Gems": spImg("boost-2x-gems"),
+  "2x EXP (Sailor)": spImg("boost-2x-exp"),
+  "2x Luck Drop": spImg("boost-2x-luck-drop"),
 
   // ===== Sailor Piece — bundles (full banner art) ====================
   // Names mirror the in-game banners, which list the contents directly
@@ -420,7 +447,6 @@ const sailorPieceWeapons: Product[] = [
   sp("Vampire King", "Weapon Spec", 899, "weapon"),
   sp("Manipulator", "Weapon Spec", 949, "weapon"),
   sp("Conqueror Haki", "Weapon Spec", 999, "weapon"),
-  sp("Shadow", "Weapon Spec", 999, "weapon"),
   sp("Strongest of Today", "Weapon Spec", 1049, "weapon"),
   sp("Strongest in History", "Weapon Spec", 1099, "weapon"),
   sp("Slime", "Weapon Spec", 1149, "weapon"),
